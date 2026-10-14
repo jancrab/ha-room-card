@@ -6,7 +6,9 @@ Use **Compact** above the grid for a denser layout. **Configure rooms**, or the 
 
 The installable `src/` and `dist/` card remains the initial entity-display starter. The room prototype is not yet connected to Home Assistant services or the configuration editor.
 
-Lights, devices, scenes and automations share clickable icon tiles. Active lights use warm amber; enabled devices/automations and the last selected scene use green, with muted icons for inactive controls. Standard view includes captions; compact view uses icons with hover titles and accessible names. Scenes are actions: their highlight indicates the last selection, not a measured on/off state.
+Lights, devices, scenes and automations share clickable icon tiles with short captions, including in compact view. Active lights use warm amber; enabled devices/automations use green. Scenes briefly flash as activated and do not indicate a persistent on/off state. Devices and automations share a row to keep the cards compact.
+
+Optional humidity and individual window/door contacts appear as small status facts. Each contact shows open/closed and elapsed time since its state change, updated every 30 seconds; full timestamps appear on hover and in room details. A heating/window-open hint uses the simulated HVAC action, independently of the target temperature. Click a room name for contact details, brightness sliders and an explicitly illustrative temperature history. **All off** switches off all available room lights, including hidden lights. Unavailable lights have a separate dashed appearance; a failed command preserves state. The collapsed simulation tools in room details can change contacts, make a light unreachable or fail the next card command. These remain local demonstrations, without live Home Assistant calls.
 
 ## Install with HACS
 
