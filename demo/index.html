@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Room — Home dashboard prototype</title>
+  <link rel="stylesheet" href="/demo/prototype.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Room home"><span id="brand-icon"></span>room<span class="brand-dot">.</span></a>
+      <span class="home-label">The Linden House <span class="divider">/</span> Home overview</span>
+      <div class="header-actions"><span class="prototype-badge">Interactive demo</span><button id="theme" class="icon-button" aria-label="Switch to dark theme"></button></div>
+    </header>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div><p class="eyebrow">A PLACE FOR EVERY DAY</p><h1 id="page-title">Home, at a glance<span>.</span></h1><p class="subtitle">A little warmth. The right light. Everything in its place.</p></div>
+        <div class="home-summary"><span class="summary-icon" id="summary-icon"></span><div><strong id="average"></strong><span>Average indoor temperature</span></div></div>
+      </section>
+      <section aria-labelledby="rooms-title">
+        <div class="section-heading"><div><h2 id="rooms-title">Your rooms</h2><span class="room-count">5 spaces</span></div><div class="overview-status"><span class="status-dot"></span><span id="active-count"></span></div></div>
+        <div id="rooms" class="rooms"></div>
+      </section>
+      <footer><span><span class="demo-dot"></span> Simulated home · All controls are local to this preview</span><button id="reset">Reset demo <span aria-hidden="true">↗</span></button></footer>
+    </main>
+  </div>
+  <div id="feedback" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/demo/prototype.js"></script>
+</body>
+</html>
