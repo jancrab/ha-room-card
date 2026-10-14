@@ -1,6 +1,6 @@
 # Project workflow
 
-The baseline uses Lit, a bundled ES module, a native HA form editor, node:test and Happy DOM. The initial card displays entity state and opens more-info; add the requested domain controls with capability checks and error feedback.
+The runtime uses Lit, a bundled ES module, a native HA form editor, node:test and Happy DOM. Version 0.2.0 replaces the starter with the real room dashboard and exact HA service calls. The canonical browser preview loads the same dist bundle through a mocked HA transport; do not confuse it with live HA verification.
 
 ## Editor and state
 
@@ -17,6 +17,12 @@ Run npm run check. Add service sequencing and failure tests with controls. Use n
 The repository slug, hacs filename, bundle and release asset must match. HACS installs the frontend JavaScript, not backend scripts or an iPhone widget. Document any backend additions separately.
 
 Commit the generated package-lock.json and dist bundle. The release workflow checks tag/version consistency and publishes the JS asset; validation verifies the committed build and HACS structure. Public HACS custom distribution requires a public repository. Do not change visibility or publish without task authorization.
+
+The repository is now public. Run public HACS validation for releases. First-release prototype notes in docs/releases/v0.1.0.md are historical; use version-specific notes for each new release.
+
+## Runtime verification lessons
+
+Use the actual dist bundle for browser QA, including its editor. Native HA's entities-card editor imports ha-form; preserve that lazy bootstrap. Treat scenes as momentary scene.turn_on actions; automation.turn_off uses stop_actions:false so disabling a rule does not abort already-running actions. Target adjustments require ClimateEntityFeature.TARGET_TEMPERATURE (1), a numeric single target and a non-range mode. Prefer native details for heat_cool/range controls. Contact durations use last_changed, never last_updated. A cleared presence sensor's last_changed is a presence transition, not necessarily the last motion event; an optional activity timestamp entity supplies that separately. Close the card's native modal dialog before emitting hass-more-info so HA's own dialog is not hidden behind the top layer.
 
 For manual updates replace the file and change the query version on the existing module resource; do not add a duplicate. Check actual GitHub release assets and workflow results after publishing.
 

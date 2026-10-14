@@ -6,7 +6,7 @@ const port = Number(process.env.PORT || 4173);
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    const file = resolve(root, '.' + (pathname === '/' ? '/demo/index.html' : pathname));
+    const file = resolve(root, '.' + (pathname === '/' ? '/demo/ha.html' : pathname));
     if (!file.startsWith(root + sep)) throw new Error('Invalid path');
     const body = await readFile(file);
     response.setHeader('Content-Type', ({ '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' })[extname(file)] || 'application/octet-stream');
