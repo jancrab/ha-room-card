@@ -1,6 +1,6 @@
 # HA Room Card
 
-A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.2.0** includes the actual room interface and visual configuration editor in `dist/ha-room-card.js`; it replaces the entity-only starter from v0.1.0.
+A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.3.0** includes the actual room interface and visual configuration editor in `dist/ha-room-card.js`; it replaces the entity-only starter from v0.1.0.
 
 ![Built room card](demo/ha-preview.png)
 
@@ -20,7 +20,7 @@ A compact, theme-native **Home Assistant dashboard card for one room**. Add one 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jancrab&repository=ha-room-card&category=plugin)
 
 1. In HACS, add `https://github.com/jancrab/ha-room-card` as a custom **Dashboard** repository.
-2. Download/update **HA Room Card** to v0.2.0 or later.
+2. Download/update **HA Room Card** to v0.3.0 or later.
 3. Check the existing JavaScript module resource: `/hacsfiles/ha-room-card/ha-room-card.js`. Do not register the same card twice.
 4. Reload the frontend; if the old entity-only card/editor persists, hard-refresh or clear the frontend cache. For manual module URLs, update their version query to `?v=0.2.0`.
 5. Edit your dashboard, choose **Add card**, then search for **HA Room Card**. This is a dashboard card, not an integration or entity row.
@@ -33,11 +33,22 @@ The original v0.1.0 `entity:` option migrates for supported entity domains, but 
 
 Copy the release asset `ha-room-card.js` to `/config/www/ha-room-card.js`. Register `/local/ha-room-card.js?v=0.2.0` as a JavaScript **module** in dashboard Resources. On updates replace the file and change the query version on the existing resource.
 
+## Room-aware setup and occupancy
+
+Choose **Home Assistant room / area** in the editor. The card suggests empty mappings using entity and inherited device area assignments; existing selections and label/icon overrides are preserved. Hidden, disabled and diagnostic entities are not suggested. A single thermostat/sensor must be unambiguous; no device is guessed from its name. Only the first five lights are suggested, and ambiguous generic opening contacts are left for manual selection.
+
+Entity pickers show room entities and existing explicit selections by default. **Search all entities** searches names/IDs across all rooms; **Browse all rooms** removes the room restriction entirely. **Fill empty fields from room** retries suggestions if HA registries loaded later. These are editor conveniences: runtime entities remain explicit saved mappings, so newly assigned devices are not silently added or controlled.
+
+The presence badge follows the actual binary sensor: on = Occupied, off = Clear; the small duration uses last_changed. Optional presence_hold_minutes retains an explicitly labeled **Recent activity** indication after off, not confirmed occupancy. Default 0 disables the hold. An unavailable sensor is never inferred as occupied.
+
+The thermostat panel is lightly red for reported heating/preheating, gray for off, neutral for idle and dashed when unavailable. Its mode takes precedence over stale action metadata. The optional CSS variable --room-heating-color can override the red accent.
+
 ## Example configuration
 
 ```yaml
 type: custom:ha-room-card
 name: Living room
+area: living_room # Optional HA area ID
 icon: mdi:sofa-outline
 compact: true
 climate: climate.living_room
@@ -79,6 +90,8 @@ Every section is optional. Replace the example IDs with your own entities. Light
 | `temperature_step` | Requested adjustment step; `0.5`. Native step and bounds are respected. |
 | `humidity` | Optional humidity sensor; otherwise climate `current_humidity` if reported. |
 | `presence` | Binary occupancy/motion sensor. |
+| `presence_hold_minutes` | Optional Recent activity hold after off, 0–120 minutes; default 0. |
+| `area` | Optional HA area ID for editor suggestions and room-scoped pickers. |
 | `activity` | Optional timestamp sensor or date/time input_datetime for last activity. |
 | `windows`, `doors` | Binary sensor lists; `on` means open. |
 | `lights` | Up to five light entities. |

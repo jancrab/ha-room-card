@@ -6,4 +6,9 @@ export const cardStyles = css`
   @container(max-width:300px){.header{gap:5px}.room-icon{display:none}.presence{font-size:9px}.tile>span{font-size:10px}.target button{min-width:44px;padding:0}.target-center{min-width:42px}.current{font-size:28px}.secondary{grid-template-columns:1fr}.scenes-group{grid-column:auto}.tiles{flex-wrap:wrap}.tile{flex-basis:44px}}
   @media(prefers-reduced-motion:no-preference){.tile{transition:background .15s,color .15s}}
   .message:empty{display:none}.contact{max-width:100%;white-space:normal}.contact time{white-space:nowrap}.title button>span{font-size:11px;color:var(--room-muted)}
+  .thermostat:not(.sensor-only){padding:7px 8px;border-radius:12px;border:1px solid var(--room-line);background:var(--room-soft)}
+  .thermostat.heating{--room-heat:var(--room-heating-color,var(--red-color,#c94b4b));background:color-mix(in srgb,var(--room-heat) 10%,var(--ha-card-background,var(--card-background-color,#fff)));border-color:color-mix(in srgb,var(--room-heat) 25%,var(--room-line))}
+  .thermostat.heating .hvac{color:var(--room-heat)}.thermostat.off .current,.thermostat.off .target-center{color:var(--room-muted)}.thermostat.unavailable{border-style:dashed}.thermostat .target{background:var(--ha-card-background,var(--card-background-color,#fff))}
+  .all-off>span{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:1px solid var(--room-line);border-radius:6px;background:var(--ha-card-background,var(--card-background-color,#fff))}.all-off:hover:not(:disabled)>span{border-color:var(--primary-color,#2196f3);color:var(--primary-text-color)}
+  .thermostat.heating .hvac{color:var(--primary-text-color,#263d36)}.thermostat.heating .hvac ha-icon{color:var(--room-heat)}
 `;

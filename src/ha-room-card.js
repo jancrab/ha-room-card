@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
-import { validateConfig, enabledItems, available, number, domainOf, targetTemperature, supportsBrightness, relativeTime, contactState, activityTimestamp } from './model.js';
+import { validateConfig, enabledItems, available, number, domainOf, targetTemperature, supportsBrightness, relativeTime, contactState, activityTimestamp, climateAppearance, presenceStatus } from './model.js';
 import { cardStyles } from './styles.js';
 import './editor.js';
 export { validateConfig } from './model.js';
@@ -163,7 +163,7 @@ export class RoomCard extends LitElement {
     const items = this._items(key);
     if (!this._shown(key) || !items.length) return nothing;
     const on = items.filter(item => this._state(item.entity)?.state === 'on').length;
-    return html`<section class="group ${key}-group" aria-label=${title}><div class="group-heading"><span>${title}${key === 'lights' ? ` · ${on}/${items.length}` : ''}</span>${key === 'lights' ? html`<button class="all-off" ?disabled=${this._busy || !on || !this._serviceAvailable('light', 'turn_off')} @click=${this._allOff}>All off</button>` : key === 'automations' ? html`<span>${on} enabled</span>` : nothing}</div><div class="tiles">${repeat(items, item => item.entity, item => this._tile(item, key))}</div></section>`;
+    return html`<section class="group ${key}-group" aria-label=${title}><div class="group-heading"><span>${title}${key === 'lights' ? ` · ${on}/${items.length}` : ''}</span>${key === 'lights' ? html`<button class="all-off" ?disabled=${this._busy || !on || !this._serviceAvailable('light', 'turn_off')} @click=${this._allOff}><span>All off</span></button>` : key === 'automations' ? html`<span>${on} enabled</span>` : nothing}</div><div class="tiles">${repeat(items, item => item.entity, item => this._tile(item, key))}</div></section>`;
   }
   _contactRows() {
     return ['windows', 'doors'].flatMap(key => this._items(key).map(item => ({ item, type: key === 'windows' ? 'window' : 'door', state: this._state(item.entity) })));
@@ -179,13 +179,14 @@ export class RoomCard extends LitElement {
     const current = this._config.temperature ? available(sensor) ? number(sensor.state) : null : available(climate) ? number(climate.attributes?.current_temperature) : null;
     const unit = this._unit(this._config.temperature ? sensor : climate);
     const target = available(climate) ? number(climate.attributes?.temperature) : null;
-    const heating = available(climate) && climate.attributes?.hvac_action === 'heating';
+    const appearance = this._config.climate ? climateAppearance(climate) : 'sensor-only';
+    const heating = appearance === 'heating';
     const windowOpen = this._items('windows').some(item => this._state(item.entity)?.state === 'on');
-    const action = available(climate) ? climate.attributes?.hvac_action || climate.state : 'Unavailable';
+    const action = appearance === 'off' ? 'Off' : available(climate) ? climate.attributes?.hvac_action || `${climate.state} mode` : 'Unavailable';
     const step = this._config.temperature_step ?? 0.5;
     const next = direction => targetTemperature(climate, direction, step);
     const supported = target !== null && next(1) !== null;
-    return html`<div class="thermostat"><div><div class="current" aria-label=${`Current temperature ${this._format(current)} ${unit}`}>${this._format(current)}<span class="unit">${unit}</span></div>${this._config.climate ? html`<div class="hvac ${heating ? 'heating' : ''}">${mdi(heating ? 'mdi:fire' : 'mdi:thermostat')}${action}${heating && windowOpen ? ' · window open' : ''}</div>` : nothing}</div>${this._config.climate ? supported ? html`<div class="target"><button aria-label="Decrease target temperature" ?disabled=${this._busy || next(-1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(-1)}>−</button><div class="target-center"><small>SET TO</small>${this._format(target)}<small>${this._unit(climate)}</small></div><button aria-label="Increase target temperature" ?disabled=${this._busy || next(1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(1)}>+</button></div>` : html`<button class="target-readonly" @click=${() => this._moreInfo(this._config.climate)}>${!available(climate) ? 'Thermostat unavailable' : climate.state === 'heat_cool' ? `${this._format(climate.attributes?.target_temp_low)}–${this._format(climate.attributes?.target_temp_high)} ${this._unit(climate)} · Details` : 'Thermostat details'}</button>` : nothing}</div>`;
+    return html`<div class="thermostat ${appearance}"><div><div class="current" aria-label=${`Current temperature ${this._format(current)} ${unit}`}>${this._format(current)}<span class="unit">${unit}</span></div>${this._config.climate ? html`<div class="hvac ${heating ? 'heating' : ''}">${mdi(heating ? 'mdi:fire' : 'mdi:thermostat')}${action}${heating && windowOpen ? ' · window open' : ''}</div>` : nothing}</div>${this._config.climate ? supported ? html`<div class="target"><button aria-label="Decrease target temperature" ?disabled=${this._busy || next(-1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(-1)}>−</button><div class="target-center"><small>SET TO</small>${this._format(target)}<small>${this._unit(climate)}</small></div><button aria-label="Increase target temperature" ?disabled=${this._busy || next(1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(1)}>+</button></div>` : html`<button class="target-readonly" @click=${() => this._moreInfo(this._config.climate)}>${!available(climate) ? 'Thermostat unavailable' : climate.state === 'heat_cool' ? `${this._format(climate.attributes?.target_temp_low)}–${this._format(climate.attributes?.target_temp_high)} ${this._unit(climate)} · Details` : 'Thermostat details'}</button>` : nothing}</div>`;
   }
   _feedback() {
     return html`${this._error ? html`<div class="message error" role="alert">${this._error}<button aria-label="Dismiss error" @click=${() => { this._error = ''; }}>×</button></div>` : nothing}<div class="message status" role="status" aria-live="polite">${this._busy ? 'Sending command · waiting for Home Assistant…' : this._message || nothing}</div>`;
@@ -207,13 +208,14 @@ export class RoomCard extends LitElement {
     const config = this._config;
     const climate = this._state(config.climate);
     const presence = this._state(config.presence);
+    const occupancy = presenceStatus(presence, config.presence_hold_minutes ?? 0);
     const humidityState = this._state(config.humidity);
     const humidity = config.humidity ? available(humidityState) ? number(humidityState.state) : null : available(climate) ? number(climate.attributes?.current_humidity) : null;
     const activity = this._state(config.activity);
     const timestamp = activityTimestamp(activity);
     const hasEntities = ['climate', 'temperature', 'humidity', 'presence', 'activity'].some(key => config[key]) || ['lights', 'scenes', 'devices', 'automations', 'windows', 'doors'].some(key => config[key]?.length);
-    return html`<ha-card class="${config.compact ? 'compact' : ''} ${config.show_labels === false ? 'labels-off' : ''}"><header class="header"><span class="room-icon">${mdi(config.icon || 'mdi:home-outline')}</span><div class="title"><h2><button @click=${this._openDetails}>${config.name || 'Room'} <span aria-hidden="true">↗</span></button></h2>${config.subtitle ? html`<p class="subtitle">${config.subtitle}</p>` : nothing}</div>${this._shown('presence') && config.presence ? html`<span class="presence ${presence?.state === 'on' ? 'on' : ''}">${!available(presence) ? 'Unavailable' : presence.state === 'on' ? 'Occupied' : 'Clear'}</span>` : nothing}</header>
-      <div class="meta"><span>${this._shown('presence') ? config.activity ? html`Last activity · ${timestamp ? relativeTime(timestamp) : 'unavailable'}` : config.presence && available(presence) ? presence.state === 'on' ? 'Occupied now' : html`Presence changed · ${relativeTime(presence.last_changed)}` : nothing : nothing}</span>${this._shown('humidity') && (config.humidity || humidity !== null) ? html`<span class="humidity">${mdi('mdi:water-percent')}${this._format(humidity)}%</span>` : nothing}</div>
+    return html`<ha-card class="${config.compact ? 'compact' : ''} ${config.show_labels === false ? 'labels-off' : ''}"><header class="header"><span class="room-icon">${mdi(config.icon || 'mdi:home-outline')}</span><div class="title"><h2><button @click=${this._openDetails}>${config.name || 'Room'} <span aria-hidden="true">↗</span></button></h2>${config.subtitle ? html`<p class="subtitle">${config.subtitle}</p>` : nothing}</div>${this._shown('presence') && config.presence ? html`<span class="presence ${occupancy.active ? 'on' : ''}">${occupancy.label}</span>` : nothing}</header>
+      <div class="meta"><span>${this._shown('presence') ? config.activity ? html`Last activity · ${timestamp ? relativeTime(timestamp) : 'unavailable'}` : config.presence ? occupancy.detail : nothing : nothing}</span>${this._shown('humidity') && (config.humidity || humidity !== null) ? html`<span class="humidity">${mdi('mdi:water-percent')}${this._format(humidity)}%</span>` : nothing}</div>
       ${this._renderContacts()}${this._renderTemperature()}${this._group('lights', 'Lights')}<div class="secondary">${this._group('scenes', 'Scenes')}${this._group('devices', 'Devices')}${this._group('automations', 'Automations')}</div>
       ${!hasEntities ? html`<p class="empty">Choose room entities in the visual card editor. Add a thermostat, lights, contacts or other controls to get started.</p>` : nothing}
       ${!this._details ? this._feedback() : nothing}

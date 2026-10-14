@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Add state-aware thermostat styling: subtle red for reported heating/preheating, gray for off, neutral for idle and dashed for unavailable. Off mode takes precedence over stale action attributes.
+- Use a small outlined All off control while retaining a 44px touch target.
+- Add HA area selection, empty-field suggestions from entity/device registries and room-scoped pickers. Global entity search and explicit existing selections allow manual cross-room overrides.
+- Derive occupancy and elapsed duration from binary state/last_changed; add an optional, explicitly labeled Recent activity hold after the sensor clears.
+
 ## 0.2.0
 
 - Replace the entity-only starter with the actual theme-native room card and native HA visual editor in the release bundle.

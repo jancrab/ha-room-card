@@ -29,12 +29,16 @@ class MockForm extends HTMLElement {
       const caption = document.createElement('span'); caption.textContent = this._label?.(field) || field.name; label.append(caption);
       const selector = field.selector;
       let input;
-      if (selector.entity) {
-        input = document.createElement('select'); input.multiple = !!selector.entity.multiple;
+      if (selector.entity || selector.area) {
+        input = document.createElement('select'); input.multiple = !!selector.entity?.multiple;
         if (!input.multiple) { const none = document.createElement('option'); none.value = ''; none.textContent = 'None'; input.append(none); }
+        if (selector.area) {
+          for (const [id, area] of Object.entries(this._hass.areas || {})) {const option=document.createElement('option');option.value=id;option.textContent=area.name;option.selected=this._data[field.name]===id;input.append(option);}
+        } else {
         const filters = Array.isArray(selector.entity.filter) ? selector.entity.filter : [selector.entity.filter || { domain: selector.entity.domain || [] }];
-        for (const [id, state] of Object.entries(this._hass.states)) if (filters.some(filter => { const domains = [filter.domain || []].flat(); const classes = [filter.device_class || []].flat(); return (!domains.length || domains.includes(id.split('.')[0])) && (!classes.length || classes.includes(state.attributes.device_class)); })) {
+        for (const [id, state] of Object.entries(this._hass.states)) if ((!selector.entity.include_entities || selector.entity.include_entities.includes(id)) && !selector.entity.exclude_entities?.includes(id) && filters.some(filter => { const domains = [filter.domain || []].flat(); const classes = [filter.device_class || []].flat(); return (!domains.length || domains.includes(id.split('.')[0])) && (!classes.length || classes.includes(state.attributes.device_class)); })) {
           const option = document.createElement('option'); option.value = id; option.textContent = `${state.attributes.friendly_name || id} (${id})`; option.selected = input.multiple ? (this._data[field.name] || []).includes(id) : this._data[field.name] === id; input.append(option);
+        }
         }
       } else {
         input = document.createElement('input'); input.type = selector.boolean ? 'checkbox' : selector.number ? 'number' : 'text';
@@ -82,6 +86,8 @@ const hass={states,locale:{language:'en'},config:{unit_system:{temperature:'°C'
   }
   refresh();
 }};
+hass.areas={};hass.devices={};hass.entities={};
+configs.forEach(config=>{const area=config.name.toLowerCase().replaceAll(' ','_');config.area=area;hass.areas[area]={area_id:area,name:config.name};hass.devices[area]={id:area,area_id:area};[config.climate,config.humidity,config.presence,...config.windows,...config.doors,...config.lights,...config.scenes,...config.devices,...config.automations].forEach(id=>{hass.entities[id]={entity_id:id,device_id:area};});});
 function refresh(){cards.forEach(card=>{card.hass=hass;});if(editor)editor.hass=hass;}
 let editor;
 configs.forEach(config=>{const card=document.createElement('ha-room-card');card.setConfig(config);card.hass=hass;cards.push(card);document.querySelector('#rooms').append(card);});
@@ -97,3 +103,5 @@ document.querySelector('#offline').onclick=()=>{const id='light.living_room_0';s
 document.querySelector('#window').onclick=()=>{const id='binary_sensor.living_room_window';states[id]={...states[id],state:states[id].state==='on'?'off':'on',last_changed:new Date().toISOString()};refresh();};
 document.addEventListener('hass-more-info',event=>{const state=states[event.detail.entityId];document.querySelector('#info-title').textContent=state?.attributes.friendly_name||event.detail.entityId;document.querySelector('#info-content').textContent=JSON.stringify(state,null,2);document.querySelector('#info-dialog').showModal();});
 document.querySelector('#close-info').onclick=()=>document.querySelector('#info-dialog').close();
+
+document.querySelector('#heating-state').onchange=event=>{const value=event.target.value;const id='climate.living_room';states[id]={...states[id],state:['off','unavailable'].includes(value)?value:'heat',attributes:{...states[id].attributes,hvac_action:value}};refresh();};

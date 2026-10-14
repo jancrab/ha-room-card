@@ -24,6 +24,8 @@ Public HACS validation checks GitHub repository topics as well as files. Keep re
 
 ## Runtime verification lessons
 
+Area suggestions must use entity.area_id first, then its device.area_id. Never guess room membership from entity names. Use native entity selectors' include_entities/exclude_entities for room scope and keep explicit selected overrides visible. Global search is deliberately independent of room scope. Fill only empty fields; do not overwrite manual mappings or guess an activity timestamp from arbitrary timestamp sensors. Presence hold is based on the off transition and must be labeled Recent activity, not confirmed occupancy.
+
 Use the actual dist bundle for browser QA, including its editor. Native HA's entities-card editor imports ha-form; preserve that lazy bootstrap. Treat scenes as momentary scene.turn_on actions; automation.turn_off uses stop_actions:false so disabling a rule does not abort already-running actions. Target adjustments require ClimateEntityFeature.TARGET_TEMPERATURE (1), a numeric single target and a non-range mode. Prefer native details for heat_cool/range controls. Contact durations use last_changed, never last_updated. A cleared presence sensor's last_changed is a presence transition, not necessarily the last motion event; an optional activity timestamp entity supplies that separately. Close the card's native modal dialog before emitting hass-more-info so HA's own dialog is not hidden behind the top layer.
 
 For manual updates replace the file and change the query version on the existing module resource; do not add a duplicate. Check actual GitHub release assets and workflow results after publishing.

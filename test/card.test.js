@@ -1,7 +1,7 @@
 import { test, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
-import { targetTemperature, supportsBrightness, relativeTime, contactState, activityTimestamp, number } from '../src/model.js';
+import { targetTemperature, supportsBrightness, relativeTime, contactState, activityTimestamp, number, climateAppearance } from '../src/model.js';
 const window = new Window();
 for (const key of ['window', 'document', 'customElements', 'HTMLElement', 'Element', 'Document', 'CSSStyleSheet', 'ShadowRoot', 'CustomEvent', 'Event']) globalThis[key] = window[key];
 globalThis.__VERSION__ = 'test';
@@ -70,6 +70,18 @@ test('room UI displays measured temperature, contacts and labels without pretend
   assert.match(card.shadowRoot.querySelector('.contact').textContent, /open/);
   assert.equal(card.shadowRoot.querySelector('.hvac').classList.contains('heating'), false);
   assert.match(card.shadowRoot.querySelector('.tile').textContent, /Ceiling/);
+});
+test('heating tint follows reported action, while off overrides a stale heating action', async () => {
+  const { card, hass } = fixture(); await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.thermostat').classList.contains('idle'), true);
+  hass.states['climate.room'] = thermostat({ hvac_action: 'heating' }); card.hass = hass; await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.thermostat').classList.contains('heating'), true);
+  hass.states['climate.room'] = { ...thermostat({ hvac_action: 'heating' }), state: 'off' }; card.hass = hass; await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.thermostat').classList.contains('off'), true);
+  assert.equal(card.shadowRoot.querySelector('.hvac').textContent.trim(), 'Off');
+  assert.equal(climateAppearance({ ...thermostat(), state: 'unavailable' }), 'unavailable');
+  assert.equal(climateAppearance(thermostat({ hvac_action: 'preheating' })), 'heating');
+  assert.equal(climateAppearance(thermostat({ hvac_action: 'cooling' })), 'idle');
 });
 test('reused hass objects update state and unknown entities stay distinct from off', async () => {
   const { card, hass } = fixture(); await card.updateComplete;
@@ -177,5 +189,17 @@ test('fresh editor bootstraps native forms, exposes all mappings and preserves c
   assert.equal(result.lights[0].enabled, true); assert.equal(result.lights[0].name, 'Desk');
   editor._changed(new CustomEvent('value-changed', { detail: { value: { temperature_step: null, climate: '', doors: null } } }));
   assert.equal(result.temperature_step, undefined); assert.equal(result.climate, undefined); assert.deepEqual(result.doors, []);
+  editor.hass = { states: { 'light.room': state('light.room', 'on'), 'light.other': state('light.other', 'off'), 'light.ceiling': state('light.ceiling', 'off') }, entities: { room: { entity_id: 'light.room', area_id: 'room' }, other: { entity_id: 'light.other', area_id: 'other' } }, areas: { room: { name: 'Room A' } } };
+  editor.setConfig({ ...result, area: 'room' }); await editor.updateComplete;
+  const lightSelector = () => [...editor.shadowRoot.querySelectorAll('ha-form')].flatMap(form => form.schema).find(field => field.name === 'lights').selector.entity;
+  assert.ok(lightSelector().include_entities.includes('light.room'));
+  assert.ok(lightSelector().include_entities.includes('light.ceiling'), 'explicit outside-room selection remains available');
+  assert.ok(lightSelector().exclude_entities.includes('light.other'));
+  editor._search = 'other'; await editor.updateComplete;
+  assert.ok(lightSelector().include_entities.includes('light.other'), 'global search permits cross-room override');
+  const suggested = editor._fillSuggestions({ area: 'room', name: 'My room', lights: [{ entity: 'light.ceiling', name: 'Manual label' }] });
+  assert.equal(suggested.name, 'My room'); assert.equal(suggested.lights[0].name, 'Manual label');
+  const fresh = editor._fillSuggestions({ area: 'room', name: 'Room' });
+  assert.equal(fresh.name, 'Room A'); assert.deepEqual(fresh.lights, ['light.room']);
   await customElements.get('ha-room-card').getConfigElement(); assert.equal(loads, 1);
 });
