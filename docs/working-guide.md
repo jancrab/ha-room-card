@@ -33,3 +33,8 @@ For manual updates replace the file and change the query version on the existing
 GitHub login does not set Git author/committer metadata. Check effective identity and keep per-project changes repository-local. Do not store tokens, personal device data or inherited authorization in this guide.
 
 Sources: https://hacs.dev/docs/publish/plugin/ and https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/.
+
+
+## Focused layouts and placement
+
+Item `display` can be card, details or hidden; absence means the layout default. Compact defaults scenes/devices to details; automations default to details in both modes. An explicit card placement also pins closed-contact duration. Legacy enabled:false remains excluded. Section visibility applies to both views. All off acts only on included lights currently placed on the card; details-only lights retain individual control in the dialog. Reordering must preserve every item field and unknown configuration. Details must expose actual toggles/scene actions before controls are moved off the overview. Dimmer disclosures should retain their open state across HA updates. Never summarize unavailable contacts as closed. Keep readable labels and 44px hit targets; use full accessible names and detail labels when narrow layouts truncate captions.

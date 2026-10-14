@@ -4,7 +4,8 @@ export const SECTIONS = ['thermostat', 'humidity', 'presence', 'contacts', 'ligh
 const entityPattern = /^[a-z][a-z0-9_]*\.[a-z0-9_]+$/;
 export const entityId = value => typeof value === 'string' ? value : value?.entity;
 export const domainOf = id => id?.split('.')[0];
-export const enabledItems = (config, key) => (config[key] || []).filter(item => item.enabled !== false);
+export const enabledItems = (config, key) => (config[key] || []).filter(item => item.enabled !== false && item.display !== 'hidden');
+export const itemDisplay = (config, key, item) => item.enabled === false ? 'hidden' : item.display || (key === 'automations' || (config.compact && ['scenes', 'devices'].includes(key)) ? 'details' : 'card');
 export const available = state => !!state && !['unknown', 'unavailable'].includes(state.state);
 export function climateAppearance(state) {
   if (!available(state)) return 'unavailable';
@@ -51,6 +52,7 @@ export function validateConfig(value) {
       seen.add(item.entity);
       for (const field of ['name', 'icon']) if (item[field] !== undefined && typeof item[field] !== 'string') throw new Error(`${key}.${field} must be text.`);
       if (item.enabled !== undefined && typeof item.enabled !== 'boolean') throw new Error(`${key}.enabled must be true or false.`);
+      if (item.display !== undefined && !['card', 'details', 'hidden'].includes(item.display)) throw new Error(`${key}.display must be card, details or hidden.`);
       return item;
     });
   }

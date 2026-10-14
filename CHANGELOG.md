@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+- Redesign Compact as a focused room overview with larger labels, one presence line and a stable temperature/light hierarchy.
+- Add per-item card/details/hidden placement and manual ordering in the native visual editor; preserve legacy exclusions.
+- Summarize closed contacts while retaining visible open/unavailable states and individually pinned contact durations.
+- Add direct light/device/automation toggles and scene actions to room details, with individually expandable brightness controls.
+- Scope All off to visible included lights; keep hidden sections out of both views and group actions.
+- Keep full entity names accessible when narrow cards truncate light labels, and simplify initially expanded editor sections.
+
 ## 0.3.0
 
 - Add state-aware thermostat styling: subtle red for reported heating/preheating, gray for off, neutral for idle and dashed for unavailable. Off mode takes precedence over stale action attributes.

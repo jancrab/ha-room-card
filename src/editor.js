@@ -15,7 +15,7 @@ const labels = {
 export class RoomCardEditor extends LitElement {
   static properties = { hass: { attribute: false, hasChanged: () => true }, _config: { state: true }, _search: { state: true }, _allRooms: { state: true } };
   static styles = css`
-    :host{display:block;color:var(--primary-text-color);font:inherit}details{border-top:1px solid var(--divider-color,#ddd);padding:6px 0}summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:14px;font-weight:500;gap:8px}summary::before{content:'›';font-size:20px}details[open]>summary::before{transform:rotate(90deg)}summary:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}ha-form{display:block;margin:8px 0 12px}.hint{font-size:12px;line-height:1.6;color:var(--secondary-text-color);margin:0 0 12px}.item{padding:8px 0;border-top:1px solid var(--divider-color,#ddd)}.item strong{display:block;font-size:12px;overflow-wrap:anywhere}.item small{display:block;font-size:11px;color:var(--secondary-text-color);margin-top:4px}.customize{margin:0 0 10px}.customize summary{font-size:12px;font-weight:400}
+    :host{display:block;color:var(--primary-text-color);font:inherit}details{border-top:1px solid var(--divider-color,#ddd);padding:6px 0}summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:14px;font-weight:500;gap:8px}summary::before{content:'›';font-size:20px}details[open]>summary::before{transform:rotate(90deg)}summary:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}ha-form{display:block;margin:8px 0 12px}.hint{font-size:12px;line-height:1.6;color:var(--secondary-text-color);margin:0 0 12px}.item{padding:8px 0;border-top:1px solid var(--divider-color,#ddd)}.item strong{display:block;font-size:14px;overflow-wrap:anywhere}.item small{display:block;font-size:11px;color:var(--secondary-text-color);margin-top:4px}.customize{margin:0 0 10px}.customize summary{font-size:14px;font-weight:400}.item-heading{display:flex;align-items:center;gap:4px}.item-heading strong{flex:1}.item-heading button{min-width:44px;min-height:44px;background:transparent;border:1px solid var(--divider-color,#ddd);border-radius:6px;color:inherit;cursor:pointer;font-size:18px}.item-heading button:disabled{opacity:.4;cursor:default}.item-heading button:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
 .scope{display:grid;gap:10px;margin-bottom:12px}.scope>label{display:grid;gap:6px;font-size:12px}.scope input[type=search]{min-height:44px;border:1px solid var(--divider-color,#ddd);border-radius:8px;background:var(--card-background-color,#fff);color:var(--primary-text-color);font:inherit;padding:0 10px;width:100%;box-sizing:border-box}.scope .scope-toggle{display:flex;align-items:center;gap:8px;min-height:44px}.scope input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary-color)}.scope button{min-height:44px;border:1px solid var(--divider-color,#ddd);border-radius:8px;background:transparent;color:var(--primary-text-color);font:inherit;cursor:pointer}.scope button:disabled{opacity:.45;cursor:default}
   `;
 
@@ -59,15 +59,29 @@ export class RoomCardEditor extends LitElement {
     });
     return html`<ha-form .hass=${this.hass} .data=${data} .schema=${scopedSchema} .computeLabel=${field => labels[field.name] || field.name} @value-changed=${this._changed}></ha-form>`;
   }
+  _moveItem(key, index, direction) {
+    const items = [...this._config[key]];
+    const next = index + direction;
+    if (next < 0 || next >= items.length) return;
+    [items[index], items[next]] = [items[next], items[index]];
+    this._emit({ ...this._config, [key]: items });
+  }
   _itemForms(key) {
     if (!this._config[key]?.length) return html``;
-    return html`<details class="customize"><summary>Customize selected entities</summary><p class="hint">Include or hide individual entities, and optionally override their label or icon. Hidden entities are excluded from group actions.</p>${this._config[key].map((entry, index) => {
+    return html`<details class="customize"><summary>Placement, order & labels</summary><p class="hint">Compact shows lights and contacts by default. Scenes and devices move to details; automations default to details in both layouts. Pin any item to the card. Hidden items are excluded from actions. All off affects only lights on the card.</p>${this._config[key].map((entry, index) => {
       const item = typeof entry === 'string' ? { entity: entry } : entry;
       const state = this.hass?.states?.[item.entity];
-      return html`<div class="item"><strong>${state?.attributes?.friendly_name || item.entity}</strong><small>${item.entity}</small><ha-form .hass=${this.hass} .data=${{ enabled: true, ...item }} .schema=${[bool('enabled'), text('name'), { name: 'icon', selector: { icon: {} } }]} .computeLabel=${field => ({ enabled: 'Include this entity', name: 'Label (optional)', icon: 'Icon (optional)' })[field.name]} @value-changed=${event => {
+      const name = item.name || state?.attributes?.friendly_name || item.entity;
+      return html`<div class="item"><div class="item-heading"><strong>${name}</strong><button aria-label=${`Move ${name} up`} ?disabled=${index === 0} @click=${() => this._moveItem(key, index, -1)}>↑</button><button aria-label=${`Move ${name} down`} ?disabled=${index === this._config[key].length - 1} @click=${() => this._moveItem(key, index, 1)}>↓</button></div><small>${item.entity}</small><ha-form .hass=${this.hass} .data=${{ ...item, display: item.enabled === false ? 'hidden' : item.display || 'auto' }} .schema=${[{ name: 'display', selector: { select: { mode: 'dropdown', options: [{ value: 'auto', label: 'Layout default' }, { value: 'card', label: 'On card' }, { value: 'details', label: 'Details only' }, { value: 'hidden', label: 'Hidden' }] } } }, text('name'), { name: 'icon', selector: { icon: {} } }]} .computeLabel=${field => ({ display: 'Placement', name: 'Label (optional)', icon: 'Icon (optional)' })[field.name]} @value-changed=${event => {
         event.stopPropagation();
         const items = [...this._config[key]];
-        items[index] = { ...item, ...event.detail.value, entity: item.entity };
+        const next = { ...item, ...event.detail.value, entity: item.entity };
+        if ('display' in event.detail.value) {
+          next.enabled = next.display !== 'hidden';
+          if (next.display === 'auto') delete next.display;
+        }
+        for (const field of ['name', 'icon']) if (next[field] == null || next[field] === '') delete next[field];
+        items[index] = next;
         this._emit({ ...this._config, [key]: items });
       }}></ha-form></div>`;
     })}</details>`;
@@ -75,13 +89,13 @@ export class RoomCardEditor extends LitElement {
   render() {
     if (!this.hass || !this._config) return html``;
     return html`
-      <p class="hint">One card per room. Choose real Home Assistant entities below. Empty sections disappear automatically; no YAML is required.</p>
+      <p class="hint">Choose a room, then pin the controls you use every day. Room details keep the remaining controls one tap away.</p>
       ${this._form([{ name: 'area', selector: { area: {} } }])}
       <div class="scope"><label>Search all entities<input type="search" placeholder="Search names or IDs across all rooms…" .value=${this._search || ''} @input=${event => { this._search = event.target.value; }}></label><label class="scope-toggle"><input type="checkbox" .checked=${!!this._allRooms} @change=${event => { this._allRooms = event.target.checked; }}> Browse all rooms</label><button @click=${() => this._emit(this._fillSuggestions(this._config))} ?disabled=${!this._config.area}>Fill empty fields from room</button></div>
       <p class="hint">${this._config.area ? `${areaEntityIds(this.hass, this._config.area).length} room entities found. Room selection fills empty fields; existing selections and custom overrides are kept. Search above to select from any room. Up to five lights are suggested.` : 'Select a room for automatic suggestions and room-only pickers. You can always search across all rooms.'}${this._config.area && !this.hass.entities ? ' HA registries are not loaded yet; browse all rooms to choose manually.' : ''}</p>
       <details open><summary>Room & layout</summary>${this._form([text('name'), text('subtitle'), { name: 'icon', selector: { icon: {} } }, bool('compact'), bool('show_labels')])}</details>
-      <details open><summary>Temperature & presence</summary>${this._form([bool('show_thermostat'), entity('climate', ['climate']), entity('temperature', ['sensor']), { name: 'temperature_step', selector: { number: { min: 0.1, max: 10, step: 0.1, mode: 'box' } } }, bool('show_humidity'), entity('humidity', ['sensor']), bool('show_presence'), entity('presence', ['binary_sensor']), { name: 'presence_hold_minutes', selector: { number: { min: 0, max: 120, step: 1, mode: 'box' } } }, entity('activity', ['sensor', 'input_datetime'])])}<p class="hint">Occupancy uses the binary sensor state and last_changed. An optional hold after off is labeled Recent activity, not confirmed occupancy. The thermostat supplies temperature when no separate sensor is selected. Range thermostats open native HA details.</p></details>
-      <details open><summary>Lights · ${this._config.lights?.length || 0}</summary>${this._form([bool('show_lights'), entity('lights', LISTS.lights, true)])}${this._itemForms('lights')}</details>
+      <details><summary>Temperature & presence</summary>${this._form([bool('show_thermostat'), entity('climate', ['climate']), entity('temperature', ['sensor']), { name: 'temperature_step', selector: { number: { min: 0.1, max: 10, step: 0.1, mode: 'box' } } }, bool('show_humidity'), entity('humidity', ['sensor']), bool('show_presence'), entity('presence', ['binary_sensor']), { name: 'presence_hold_minutes', selector: { number: { min: 0, max: 120, step: 1, mode: 'box' } } }, entity('activity', ['sensor', 'input_datetime'])])}<p class="hint">Occupancy uses the binary sensor state and last_changed. An optional hold after off is labeled Recent activity, not confirmed occupancy. The thermostat supplies temperature when no separate sensor is selected. Range thermostats open native HA details.</p></details>
+      <details><summary>Lights · ${this._config.lights?.length || 0}</summary>${this._form([bool('show_lights'), entity('lights', LISTS.lights, true)])}${this._itemForms('lights')}</details>
       <details><summary>Window & door contacts</summary>${this._form([bool('show_contacts'), entity('windows', LISTS.windows, true), entity('doors', LISTS.doors, true)])}${this._itemForms('windows')}${this._itemForms('doors')}</details>
       ${['scenes', 'devices', 'automations'].map(key => html`<details><summary>${labels[key]} · ${this._config[key]?.length || 0}</summary>${this._form([bool(`show_${key}`), entity(key, LISTS[key], true)])}${this._itemForms(key)}</details>`)}
     `;

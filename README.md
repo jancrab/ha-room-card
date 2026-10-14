@@ -1,6 +1,6 @@
 # HA Room Card
 
-A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.3.0** includes the actual room interface and visual configuration editor in `dist/ha-room-card.js`; it replaces the entity-only starter from v0.1.0.
+A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.4.0** adds a focused compact layout, readable controls and configurable placement in the actual card and visual editor bundled in `dist/ha-room-card.js`.
 
 ![Built room card](demo/ha-preview.png)
 
@@ -20,7 +20,7 @@ A compact, theme-native **Home Assistant dashboard card for one room**. Add one 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jancrab&repository=ha-room-card&category=plugin)
 
 1. In HACS, add `https://github.com/jancrab/ha-room-card` as a custom **Dashboard** repository.
-2. Download/update **HA Room Card** to v0.3.0 or later.
+2. Download/update **HA Room Card** to v0.4.0 or later.
 3. Check the existing JavaScript module resource: `/hacsfiles/ha-room-card/ha-room-card.js`. Do not register the same card twice.
 4. Reload the frontend; if the old entity-only card/editor persists, hard-refresh or clear the frontend cache. For manual module URLs, update their version query to `?v=0.2.0`.
 5. Edit your dashboard, choose **Add card**, then search for **HA Room Card**. This is a dashboard card, not an integration or entity row.
@@ -83,7 +83,7 @@ Every section is optional. Replace the example IDs with your own entities. Light
 | Option | Meaning / default |
 | --- | --- |
 | `name`, `subtitle`, `icon` | Room heading, optional subtitle and MDI icon. Name defaults to Room. |
-| `compact` | Dense layout; `true`. |
+| `compact` | Focused overview with temperature, lights and contact status; `true`. Secondary controls default to room details. |
 | `show_labels` | Captions under icons; `true`. |
 | `climate` | Climate entity for target/current temperature and HVAC action. |
 | `temperature` | Optional temperature sensor overriding the current reading. |
@@ -100,7 +100,16 @@ Every section is optional. Replace the example IDs with your own entities. Light
 | `automations` | Automation entities to enable/disable. |
 | `show_thermostat`, `show_humidity`, `show_presence`, `show_contacts`, `show_lights`, `show_scenes`, `show_devices`, `show_automations` | Show/hide a section; all default to `true`. Empty sections disappear. |
 
-List entries accept an entity ID or `{entity, name, icon, enabled}`. `enabled: false` excludes that entity from the interface and group actions. Hiding an entire section does not change the physical device state. Card configuration is stored by Home Assistant, not browser local storage.
+List entries accept an entity ID or `{entity, name, icon, display, enabled}`. In the visual editor, expand **Placement, order & labels** to choose **On card**, **Details only**, **Hidden**, or **Layout default**, and use the up/down buttons to reorder each list. Configuration is saved by Home Assistant.
+
+- `display: card` pins an item to both layouts. For contacts this also keeps a closed contact's duration visible.
+- `display: details` keeps the item directly accessible in Room details.
+- `display: hidden` excludes the item from both views and group actions. Legacy `enabled: false` has the same effect.
+- Without `display`, lights and contacts appear on the card. Compact moves scenes and devices to details; automations default to details in both layouts. Standard shows scenes and devices on the card.
+- **All off** affects only the included lights displayed on the card. Lights configured for details only are controlled individually in the room dialog.
+- A disabled section is hidden from both views and excluded from group actions. Hiding controls never changes the physical device state.
+
+Compact summarizes closed contacts as **All closed**. Open or unavailable contacts stay visible; closed contacts' individual durations are available in Room details. With an open contact present, the summary of other closed contacts is omitted. Room details offers direct light/device/automation controls and scene actions, with brightness sliders expanded individually. Long light labels are abbreviated visually on narrow cards; full names remain in tooltips, accessible labels and room details. Use a short custom label if needed.
 
 ## Runtime behavior and limits
 

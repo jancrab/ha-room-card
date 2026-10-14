@@ -40,6 +40,9 @@ class MockForm extends HTMLElement {
           const option = document.createElement('option'); option.value = id; option.textContent = `${state.attributes.friendly_name || id} (${id})`; option.selected = input.multiple ? (this._data[field.name] || []).includes(id) : this._data[field.name] === id; input.append(option);
         }
         }
+      } else if (selector.select) {
+        input = document.createElement('select');
+        for (const choice of selector.select.options) { const option = document.createElement('option'); option.value = choice.value; option.textContent = choice.label; option.selected = this._data[field.name] === choice.value; input.append(option); }
       } else {
         input = document.createElement('input'); input.type = selector.boolean ? 'checkbox' : selector.number ? 'number' : 'text';
         if (selector.boolean) input.checked = !!this._data[field.name];

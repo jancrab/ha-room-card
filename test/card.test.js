@@ -151,7 +151,7 @@ test('unsupported actions are disabled instead of guessing another service', asy
   assert.equal(card.shadowRoot.querySelector('.tile').disabled, true);
 });
 test('scenes are momentary actions with no on/off semantics', async () => {
-  const { card, calls } = fixture({ scenes: ['scene.relax'] }); await card.updateComplete;
+  const { card, calls } = fixture({ scenes: [{ entity: 'scene.relax', display: 'card' }] }); await card.updateComplete;
   const tile = card.shadowRoot.querySelector('.scenes-group button');
   assert.equal(tile.hasAttribute('aria-pressed'), false);
   await card._execute([{ domain: 'scene', service: 'turn_on', data: { entity_id: 'scene.relax' } }], null, 'scene.relax');
@@ -184,8 +184,8 @@ test('fresh editor bootstraps native forms, exposes all mappings and preserves c
   forms[0].dispatchEvent(new CustomEvent('value-changed', { detail: { value: { name: 'Updated', lights: ['light.ceiling'] } } }));
   assert.equal(result.custom_setting, 7); assert.equal(result.lights[0].name, 'Desk'); assert.equal(result.lights[0].enabled, false);
   await editor.updateComplete;
-  const itemForm = [...editor.shadowRoot.querySelectorAll('ha-form')].find(form => form.schema.some(field => field.name === 'enabled'));
-  itemForm.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { enabled: true } } }));
+  const itemForm = [...editor.shadowRoot.querySelectorAll('ha-form')].find(form => form.schema.some(field => field.name === 'display'));
+  itemForm.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { display: 'card' } } }));
   assert.equal(result.lights[0].enabled, true); assert.equal(result.lights[0].name, 'Desk');
   editor._changed(new CustomEvent('value-changed', { detail: { value: { temperature_step: null, climate: '', doors: null } } }));
   assert.equal(result.temperature_step, undefined); assert.equal(result.climate, undefined); assert.deepEqual(result.doors, []);
@@ -202,4 +202,64 @@ test('fresh editor bootstraps native forms, exposes all mappings and preserves c
   const fresh = editor._fillSuggestions({ area: 'room', name: 'Room' });
   assert.equal(fresh.name, 'Room A'); assert.deepEqual(fresh.lights, ['light.room']);
   await customElements.get('ha-room-card').getConfigElement(); assert.equal(loads, 1);
+});
+
+test('compact moves secondary controls to details, while explicit placement and hidden exclusions survive layout changes', async () => {
+  const { card, hass, calls } = fixture({
+    lights: ['light.ceiling', { entity: 'light.detail', display: 'details' }, { entity: 'light.hidden', display: 'hidden' }],
+    scenes: ['scene.relax'], devices: [{ entity: 'switch.outlet', display: 'card' }], automations: ['automation.heat'],
+  });
+  hass.states['light.detail'] = state('light.detail', 'on'); hass.states['light.hidden'] = state('light.hidden', 'on');
+  await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.scenes-group'), null);
+  assert.equal(card.shadowRoot.querySelector('.automations-group'), null);
+  assert.equal(card.shadowRoot.querySelectorAll('.devices-group .tile').length, 1);
+  assert.equal(card.shadowRoot.querySelectorAll('.lights-group .tile').length, 1);
+  await card._allOff(); assert.deepEqual(calls[0].data.entity_id, ['light.ceiling']);
+  card._details = true; await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelectorAll('.lights-details .tile').length, 2);
+  assert.equal(card.shadowRoot.querySelectorAll('.automations-details .tile').length, 1);
+  assert.equal(card.shadowRoot.querySelector('.scenes-details .tile').hasAttribute('aria-pressed'), false);
+  assert.equal(card.shadowRoot.querySelector('.light-settings').open, false);
+  card.shadowRoot.querySelector('.automations-details .tile').click();
+  await new Promise(resolve => setTimeout(resolve, 0)); await card.updateComplete;
+  assert.deepEqual(calls[1], { domain: 'automation', service: 'turn_off', data: { entity_id: 'automation.heat', stop_actions: false } });
+  card.setConfig({ ...card._config, compact: false }); await card.updateComplete;
+  assert.ok(card.shadowRoot.querySelector('.scenes-group'));
+  assert.equal(card.shadowRoot.querySelectorAll('.lights-group .tile').length, 1);
+  assert.equal(card.shadowRoot.querySelector('.automations-group'), null);
+  card.setConfig({ ...card._config, show_lights: false }); await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.lights-details'), null);
+  assert.throws(() => validateConfig({ lights: [{ entity: 'light.x', display: 'invalid' }] }));
+});
+
+test('compact contact summary never hides an unavailable sensor, and pinned closed contacts retain their duration', async () => {
+  const { card, hass } = fixture({ windows: ['binary_sensor.window', { entity: 'binary_sensor.pinned', display: 'card' }], presence: 'binary_sensor.presence' });
+  hass.states['binary_sensor.window'] = state('binary_sensor.window', 'off');
+  hass.states['binary_sensor.pinned'] = state('binary_sensor.pinned', 'off', { friendly_name: 'Pinned window' });
+  hass.states['binary_sensor.presence'] = state('binary_sensor.presence', 'on');
+  card.hass = hass; await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.closed-summary'), null);
+  assert.match(card.shadowRoot.querySelector('.contact').textContent, /Pinned window closed/);
+  assert.ok(card.shadowRoot.querySelector('.contact time'));
+  assert.equal(card.shadowRoot.textContent.split('Occupied').length - 1, 1);
+  hass.states['binary_sensor.window'] = state('binary_sensor.window', 'unavailable'); card.hass = hass; await card.updateComplete;
+  assert.equal(card.shadowRoot.querySelector('.closed-summary'), null);
+  assert.match(card.shadowRoot.querySelector('.contacts').textContent, /unavailable/);
+});
+
+test('editor reorders entities with custom data intact and can restore layout defaults from a hidden legacy item', async () => {
+  const editor = document.createElement('ha-room-card-editor');
+  editor.hass = { states: {} };
+  editor.setConfig({ lights: [{ entity: 'light.a', enabled: false, name: 'Desk', custom: 9 }, 'light.b'] });
+  document.body.append(editor); await editor.updateComplete;
+  let result; editor.addEventListener('config-changed', event => { result = event.detail.config; });
+  editor._moveItem('lights', 0, 1); await editor.updateComplete;
+  assert.equal(result.lights[0], 'light.b'); assert.equal(result.lights[1].custom, 9);
+  const form = [...editor.shadowRoot.querySelectorAll('ha-form')].find(form => form.data?.entity === 'light.a');
+  assert.equal(form.data.display, 'hidden');
+  form.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { display: 'auto' } } }));
+  assert.equal(result.lights[1].enabled, true); assert.equal(result.lights[1].display, undefined);
+  assert.equal(result.lights[1].name, 'Desk'); assert.equal(result.lights[1].custom, 9);
+  assert.equal(validateConfig(result).lights[1].entity, 'light.a');
 });
