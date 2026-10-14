@@ -6,6 +6,8 @@ Use **Compact** above the grid for a denser layout. **Configure rooms**, or the 
 
 The installable `src/` and `dist/` card remains the initial entity-display starter. The room prototype is not yet connected to Home Assistant services or the configuration editor.
 
+Lights, devices, scenes and automations share clickable icon tiles. Active lights use warm amber; enabled devices/automations and the last selected scene use green, with muted icons for inactive controls. Standard view includes captions; compact view uses icons with hover titles and accessible names. Scenes are actions: their highlight indicates the last selection, not a measured on/off state.
+
 ## Install with HACS
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jancrab&repository=ha-room-card&category=plugin)
