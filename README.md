@@ -2,6 +2,8 @@
 
 Compact room dashboard concept for Home Assistant. The interactive visual prototype in `demo/` shows five rooms with current/target temperature, 0.5 °C adjustment buttons, one to five lights, scenes, presence/last activity and device toggles. Light and dark themes and responsive layouts are included. All prototype data and actions are simulated; reloading restores the example home.
 
+Use **Compact** above the grid for a denser layout. **Configure rooms**, or the settings icon on a card, opens per-room visibility settings for the thermostat, presence/last activity, lights, scenes, devices and automations. Individual lights, scenes, devices and automations can also be included or hidden. Hiding a control preserves its simulated state; it does not switch the device off. Automation switches on the cards enable/disable example automations without running real schedules or Home Assistant actions. Visibility preferences and the compact layout are saved in this browser; **Reset demo** restores both the example home and default settings.
+
 The installable `src/` and `dist/` card remains the initial entity-display starter. The room prototype is not yet connected to Home Assistant services or the configuration editor.
 
 ## Install with HACS

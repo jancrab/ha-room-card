@@ -1,4 +1,6 @@
 const paths = {
+  automation: '<path d="m13 2-9 12h7l-1 8 10-13h-7z"/>',
+  settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>',
   home: '<path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/>',
   sofa: '<path d="M5 12V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v5M5 10H4a2 2 0 0 0-2 2v6h20v-6a2 2 0 0 0-2-2h-1v5H5zM5 18v2m14-2v2"/>',
   bed: '<path d="M3 18V7m18 11V7M3 15h18M3 10h18v8M6 10V6h5v4m2 0V6h5v4M3 18v2m18-2v2"/>',
@@ -29,7 +31,37 @@ const initial = [
   { name: 'Office', icon: 'desk', floor: 'First floor', current: 21.1, target: 21.5, presence: true, activity: 'Activity just now', lights: [light('Ceiling', true, 'pendant'), light('Desk', true, 'lamp'), light('Monitor', true, 'strip'), light('Shelf', false)], scenes: [['Focus', 'desk'], ['Soft light', 'leaf']], devices: [device('Monitor', true), device('Desk outlet', true)] },
   { name: 'Bathroom', icon: 'bath', floor: 'First floor', current: 22.6, target: 23, presence: false, activity: 'Last activity 34 min ago', lights: [light('Mirror', false, 'strip')], scenes: [['Morning', 'sun'], ['Evening', 'moon']], devices: [device('Towel warmer', true)] },
 ];
+initial.forEach((room, index) => {
+  room.automations = [
+    device(['Presence lighting', 'Counter auto-off', 'Night routine', 'Workday comfort', 'Mirror auto-off'][index], true, 'automation'),
+    device('Heating schedule', index !== 2, 'automation'),
+  ];
+});
 let rooms = structuredClone(initial);
+const sectionNames = { thermostat: 'Thermostat', presence: 'Presence & last activity', lights: 'Lights', scenes: 'Scenes', devices: 'Devices & switches', automations: 'Automations' };
+const storageKey = 'ha-room-prototype-settings-v1';
+const defaults = () => ({ compact: false, rooms: initial.map(() => ({ sections: Object.fromEntries(Object.keys(sectionNames).map(key => [key, true])), hidden: { lights: [], scenes: [], devices: [], automations: [] } })) });
+let preferences = defaults();
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if (saved) {
+    preferences.compact = saved.compact === true;
+    preferences.rooms.forEach((room, index) => {
+      for (const section of Object.keys(sectionNames)) {
+        if (typeof saved.rooms?.[index]?.sections?.[section] === 'boolean') room.sections[section] = saved.rooms[index].sections[section];
+      }
+      for (const section of Object.keys(room.hidden)) {
+        const list = saved.rooms?.[index]?.hidden?.[section];
+        if (Array.isArray(list)) room.hidden[section] = list.filter(value => Number.isInteger(value) && value >= 0 && value < initial[index][section].length);
+      }
+    });
+  }
+} catch { /* Storage may be unavailable or contain an older, incompatible draft. */ }
+function savePreferences() {
+  try { localStorage.setItem(storageKey, JSON.stringify(preferences)); document.querySelector('#save-status').textContent = 'Saved in this browser'; }
+  catch { document.querySelector('#save-status').textContent = 'Applied for this session · Browser storage unavailable'; }
+}
+const visibleItems = (room, index, section) => room[section].map((item, itemIndex) => ({ item, itemIndex })).filter(({ itemIndex }) => !preferences.rooms[index].hidden[section].includes(itemIndex));
 let feedbackTimeout;
 const root = document.querySelector('#rooms');
 const format = number => number.toFixed(1);
@@ -41,14 +73,25 @@ function notify(message) {
   feedbackTimeout = setTimeout(() => feedback.classList.remove('visible'), 2600);
 }
 function render() {
+  document.body.classList.toggle('compact', preferences.compact);
+  document.querySelector('#compact').setAttribute('aria-pressed', String(preferences.compact));
   root.innerHTML = rooms.map((room, index) => {
     const heating = room.target > room.current;
+    const enabled = preferences.rooms[index].sections;
+    const lights = visibleItems(room, index, 'lights');
+    const scenes = visibleItems(room, index, 'scenes');
+    const devices = visibleItems(room, index, 'devices');
+    const automations = visibleItems(room, index, 'automations');
+    const hasVisibleContent = enabled.presence || enabled.thermostat || (enabled.lights && lights.length) || (enabled.scenes && scenes.length) || (enabled.devices && devices.length) || (enabled.automations && automations.length);
     return `<article class="room-card" data-room="${index}" aria-label="${room.name}">
-      <header class="card-heading"><span class="room-symbol">${icon(room.icon)}</span><div class="room-title"><h3>${room.name}</h3><p>${room.floor}</p></div><span class="presence ${room.presence ? 'occupied' : ''}">${icon('person')}${room.presence ? 'Occupied' : 'Clear'}</span></header>
-      <div class="thermostat"><div><div class="temperature" aria-label="Current temperature ${format(room.current)} degrees Celsius">${format(room.current)}<small>°C</small></div><div class="heat-status ${heating ? 'heating' : ''}">${icon(heating ? 'flame' : 'leaf')}${heating ? 'Heating' : 'At temperature'}</div></div><div class="setpoint"><button data-action="temperature" data-delta="-0.5" aria-label="Decrease ${room.name} target by 0.5 degrees Celsius">−</button><div class="setpoint-center"><span>SET TO</span><strong aria-live="polite">${format(room.target)}°</strong></div><button data-action="temperature" data-delta="0.5" aria-label="Increase ${room.name} target by 0.5 degrees Celsius">+</button></div></div>
-      <div class="control-section"><div class="control-label"><span>Lights</span><span>${room.lights.filter(item => item.on).length} of ${room.lights.length} on</span></div><div class="lights" style="--lights:${room.lights.length}">${room.lights.map((item, lightIndex) => `<button class="light ${item.on ? 'on' : ''}" data-action="light" data-index="${lightIndex}" aria-label="${item.name} light in ${room.name}" aria-pressed="${item.on}">${icon(item.type)}<span>${item.name}</span></button>`).join('')}</div></div>
-      <div class="control-label"><span>Scenes</span><span>${room.activity}</span></div><div class="scenes">${room.scenes.map(([name, symbol], sceneIndex) => `<button class="scene" data-action="scene" data-index="${sceneIndex}" aria-pressed="${room.scene === sceneIndex}">${icon(symbol)}${name}</button>`).join('')}</div>
-      <div class="devices">${room.devices.map((item, deviceIndex) => `<button class="device" data-action="device" data-index="${deviceIndex}" aria-pressed="${item.on}" aria-label="${item.name} in ${room.name}">${icon(item.type)}<span>${item.name}</span><span class="switch" aria-hidden="true"></span></button>`).join('')}</div>
+      <header class="card-heading"><span class="room-symbol">${icon(room.icon)}</span><div class="room-title"><h3>${room.name}</h3><p>${room.floor}</p></div>${enabled.presence ? `<span class="presence ${room.presence ? 'occupied' : ''}">${icon('person')}${room.presence ? 'Occupied' : 'Clear'}</span>` : ''}<button class="card-settings" data-action="settings" aria-label="Configure ${room.name}">${icon('settings')}</button></header>
+      ${enabled.presence ? `<div class="last-activity">${room.activity}</div>` : ''}
+      ${enabled.thermostat ? `<div class="thermostat"><div><div class="temperature" aria-label="Current temperature ${format(room.current)} degrees Celsius">${format(room.current)}<small>°C</small></div><div class="heat-status ${heating ? 'heating' : ''}">${icon(heating ? 'flame' : 'leaf')}${heating ? 'Heating' : 'At temperature'}</div></div><div class="setpoint"><button data-action="temperature" data-delta="-0.5" aria-label="Decrease ${room.name} target by 0.5 degrees Celsius">−</button><div class="setpoint-center"><span>SET TO</span><strong aria-live="polite">${format(room.target)}°</strong></div><button data-action="temperature" data-delta="0.5" aria-label="Increase ${room.name} target by 0.5 degrees Celsius">+</button></div></div>` : ''}
+      ${enabled.lights && lights.length ? `<section class="control-section" aria-label="Lights"><div class="control-label"><span>Lights</span><span>${lights.filter(({ item }) => item.on).length} of ${lights.length} on</span></div><div class="lights" style="--lights:${lights.length}">${lights.map(({ item, itemIndex }) => `<button class="light ${item.on ? 'on' : ''}" data-action="light" data-index="${itemIndex}" aria-label="${item.name} light in ${room.name}" aria-pressed="${item.on}">${icon(item.type)}<span>${item.name}</span></button>`).join('')}</div></section>` : ''}
+      ${enabled.scenes && scenes.length ? `<section class="scene-section" aria-label="Scenes"><div class="control-label"><span>Scenes</span></div><div class="scenes">${scenes.map(({ item: [name, symbol], itemIndex }) => `<button class="scene" data-action="scene" data-index="${itemIndex}" aria-pressed="${room.scene === itemIndex}">${icon(symbol)}${name}</button>`).join('')}</div></section>` : ''}
+      ${enabled.devices && devices.length ? `<section class="devices-section" aria-label="Devices and switches"><div class="control-label"><span>Devices</span></div><div class="devices">${devices.map(({ item, itemIndex }) => `<button class="device" data-action="device" data-index="${itemIndex}" aria-pressed="${item.on}" aria-label="${item.name} in ${room.name}">${icon(item.type)}<span>${item.name}</span><span class="switch" aria-hidden="true"></span></button>`).join('')}</div></section>` : ''}
+      ${enabled.automations && automations.length ? `<section class="automations-section" aria-label="Automations"><div class="control-label"><span>Automations</span><span>${automations.filter(({ item }) => item.on).length} enabled</span></div><div class="automations">${automations.map(({ item, itemIndex }) => `<button class="device" data-action="automation" data-index="${itemIndex}" aria-pressed="${item.on}" aria-label="${item.name} automation in ${room.name}">${icon('automation')}<span>${item.name}</span><span class="switch" aria-hidden="true"></span></button>`).join('')}</div></section>` : ''}
+      ${!hasVisibleContent ? '<p class="empty-card">No controls selected. Choose what appears in room settings.</p>' : ''}
     </article>`;
   }).join('') + `<aside class="room-note">${icon('home')}<div><strong>Every room. One rhythm.</strong><p>From a single bedside light to the whole living room. A little space for everything.</p></div></aside>`;
   document.querySelector('#average').textContent = `${format(rooms.reduce((sum, room) => sum + room.current, 0) / rooms.length)} °C`;
@@ -61,6 +104,7 @@ root.addEventListener('click', event => {
   const room = rooms[roomIndex];
   const index = Number(button.dataset.index);
   const action = button.dataset.action;
+  if (action === 'settings') { openSettings(roomIndex); return; }
   if (action === 'temperature') {
     room.target = Math.min(30, Math.max(5, room.target + Number(button.dataset.delta)));
     notify(`${room.name} · Set to ${format(room.target)} °C`);
@@ -69,6 +113,9 @@ root.addEventListener('click', event => {
     room.scene = undefined;
   } else if (action === 'device') {
     room.devices[index].on = !room.devices[index].on;
+  } else if (action === 'automation') {
+    room.automations[index].on = !room.automations[index].on;
+    notify(`${room.name} · ${room.automations[index].name} ${room.automations[index].on ? 'enabled' : 'disabled'}`);
   } else if (action === 'scene') {
     room.scene = index;
     const sceneName = room.scenes[index][0];
@@ -92,5 +139,43 @@ themeButton.addEventListener('click', () => {
   themeButton.innerHTML = icon(dark ? 'sun' : 'moon');
   themeButton.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} theme`);
 });
-document.querySelector('#reset').addEventListener('click', () => { rooms = structuredClone(initial); render(); notify('Demo reset'); });
+const settings = document.querySelector('#settings');
+const roomSelect = document.querySelector('#settings-room');
+roomSelect.innerHTML = rooms.map((room, index) => `<option value="${index}">${room.name}</option>`).join('');
+function renderSettings() {
+  const index = Number(roomSelect.value);
+  const config = preferences.rooms[index];
+  document.querySelector('#settings-content').innerHTML = Object.entries(sectionNames).map(([key, label]) => {
+    const items = rooms[index][key];
+    return `<section class="setting-section"><label class="setting-toggle"><span>${label}</span><input type="checkbox" data-section="${key}" ${config.sections[key] ? 'checked' : ''} aria-label="Show ${label}"><span class="setting-switch" aria-hidden="true"></span></label>${Array.isArray(items) ? `<fieldset ${config.sections[key] ? '' : 'disabled'}><legend class="sr-only">Visible ${label}</legend>${items.map((item, itemIndex) => `<label class="item-option"><input type="checkbox" data-section="${key}" data-item="${itemIndex}" ${config.hidden[key].includes(itemIndex) ? '' : 'checked'}><span>${Array.isArray(item) ? item[0] : item.name}</span></label>`).join('')}</fieldset>` : ''}</section>`;
+  }).join('');
+}
+function openSettings(index = 0) {
+  roomSelect.value = String(index);
+  renderSettings();
+  settings.showModal();
+}
+roomSelect.addEventListener('change', renderSettings);
+document.querySelector('#settings-content').addEventListener('change', event => {
+  const input = event.target.closest('input[data-section]');
+  if (!input) return;
+  const config = preferences.rooms[Number(roomSelect.value)];
+  const section = input.dataset.section;
+  if (input.dataset.item === undefined) {
+    config.sections[section] = input.checked;
+    const fieldset = input.closest('section').querySelector('fieldset');
+    if (fieldset) fieldset.disabled = !input.checked;
+  } else {
+    const index = Number(input.dataset.item);
+    config.hidden[section] = config.hidden[section].filter(item => item !== index);
+    if (!input.checked) config.hidden[section].push(index);
+  }
+  savePreferences();
+  render();
+});
+document.querySelector('#configure').addEventListener('click', () => openSettings());
+document.querySelector('#close-settings').addEventListener('click', () => settings.close());
+document.querySelector('#done-settings').addEventListener('click', () => settings.close());
+document.querySelector('#compact').addEventListener('click', () => { preferences.compact = !preferences.compact; savePreferences(); render(); });
+document.querySelector('#reset').addEventListener('click', () => { rooms = structuredClone(initial); preferences = defaults(); savePreferences(); render(); notify('Demo and room settings reset'); });
 render();
