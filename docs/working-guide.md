@@ -20,6 +20,8 @@ Commit the generated package-lock.json and dist bundle. The release workflow che
 
 The repository is now public. Run public HACS validation for releases. First-release prototype notes in docs/releases/v0.1.0.md are historical; use version-specific notes for each new release.
 
+Public HACS validation checks GitHub repository topics as well as files. Keep relevant topics (home-assistant, lovelace, custom-card, hacs) on the repository; the first public run failed only on missing topics, while the package and build checks passed.
+
 ## Runtime verification lessons
 
 Use the actual dist bundle for browser QA, including its editor. Native HA's entities-card editor imports ha-form; preserve that lazy bootstrap. Treat scenes as momentary scene.turn_on actions; automation.turn_off uses stop_actions:false so disabling a rule does not abort already-running actions. Target adjustments require ClimateEntityFeature.TARGET_TEMPERATURE (1), a numeric single target and a non-range mode. Prefer native details for heat_cool/range controls. Contact durations use last_changed, never last_updated. A cleared presence sensor's last_changed is a presence transition, not necessarily the last motion event; an optional activity timestamp entity supplies that separately. Close the card's native modal dialog before emitting hass-more-info so HA's own dialog is not hidden behind the top layer.
