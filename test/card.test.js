@@ -81,7 +81,7 @@ test('heating tint follows reported action, while off overrides a stale heating 
   assert.equal(card.shadowRoot.querySelector('.hvac').textContent.trim(), 'Off');
   assert.equal(climateAppearance({ ...thermostat(), state: 'unavailable' }), 'unavailable');
   assert.equal(climateAppearance(thermostat({ hvac_action: 'preheating' })), 'heating');
-  assert.equal(climateAppearance(thermostat({ hvac_action: 'cooling' })), 'idle');
+  assert.equal(climateAppearance(thermostat({ hvac_action: 'cooling' })), 'cooling');
 });
 test('reused hass objects update state and unknown entities stay distinct from off', async () => {
   const { card, hass } = fixture(); await card.updateComplete;
@@ -179,7 +179,7 @@ test('fresh editor bootstraps native forms, exposes all mappings and preserves c
   editor.hass = { states: {} }; document.body.append(editor); await editor.updateComplete;
   const forms = [...editor.shadowRoot.querySelectorAll('ha-form')];
   const schemaNames = forms.flatMap(form => form.schema.map(field => field.name));
-  for (const key of ['climate', 'lights', 'scenes', 'devices', 'automations', 'windows', 'doors', 'humidity', 'activity', 'compact']) assert.ok(schemaNames.includes(key), key);
+  for (const key of ['climate', 'lights', 'scenes', 'devices', 'automations', 'windows', 'doors', 'humidity', 'activity', 'compact', 'show_scene', 'animate_scene', 'show_labels']) assert.ok(schemaNames.includes(key), key);
   let result; editor.addEventListener('config-changed', event => { result = event.detail.config; });
   forms[0].dispatchEvent(new CustomEvent('value-changed', { detail: { value: { name: 'Updated', lights: ['light.ceiling'] } } }));
   assert.equal(result.custom_setting, 7); assert.equal(result.lights[0].name, 'Desk'); assert.equal(result.lights[0].enabled, false);
@@ -262,4 +262,78 @@ test('editor reorders entities with custom data intact and can restore layout de
   assert.equal(result.lights[1].enabled, true); assert.equal(result.lights[1].display, undefined);
   assert.equal(result.lights[1].name, 'Desk'); assert.equal(result.lights[1].custom, 9);
   assert.equal(validateConfig(result).lights[1].entity, 'light.a');
+});
+
+test('room atmosphere follows confirmed actions, never setpoints, and handles missing data and disabled sections', async () => {
+  const { card, hass } = fixture(); await card.updateComplete;
+  const scene = () => card.shadowRoot.querySelector('.room-scene');
+  assert.ok(scene().classList.contains('idle'));
+  await card._temperature(1); await card.updateComplete;
+  assert.ok(scene().classList.contains('idle'), 'setting a target is not evidence of heating');
+  for (const action of ['heating', 'cooling', 'idle', 'heating', 'cooling']) {
+    hass.states['climate.room'] = thermostat({ hvac_action: action }); card.hass = hass; await card.updateComplete;
+    assert.ok(scene().classList.contains(action));
+  }
+  hass.themes = { darkMode: true }; card.hass = hass; await card.updateComplete;
+  assert.ok(card.shadowRoot.querySelector('ha-card').classList.contains('scheme-dark'));
+  hass.states['climate.room'] = { ...thermostat({ hvac_action: 'heating' }), state: 'off' }; card.hass = hass; await card.updateComplete;
+  assert.ok(scene().classList.contains('off'));
+  delete hass.states['climate.room']; card.hass = hass; await card.updateComplete;
+  assert.ok(scene().classList.contains('unavailable'));
+  assert.match(card.shadowRoot.querySelector('.current').textContent, /—/);
+  assert.equal(card.shadowRoot.querySelector('.target button'), null, 'no target action when the entity is missing');
+  card.setConfig({ ...card._config, show_thermostat: false }); await card.updateComplete;
+  assert.ok(scene().classList.contains('idle'));
+  card.setConfig({ ...card._config, show_scene: false }); await card.updateComplete;
+  assert.equal(scene(), null);
+  assert.throws(() => validateConfig({ show_scene: 'false' }));
+  assert.throws(() => validateConfig({ animate_scene: 'false' }));
+});
+
+test('atmosphere pauses offscreen, in hidden tabs, for reduced motion and details; observers clean up on reconfiguration and removal', async () => {
+  const previousObserver = globalThis.IntersectionObserver;
+  const previousMatchMedia = window.matchMedia;
+  const hiddenDescriptor = Object.getOwnPropertyDescriptor(document, 'hidden');
+  let hidden = false;
+  const observers = [], listeners = new Set();
+  globalThis.IntersectionObserver = class {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe(target) { this.target = target; }
+    disconnect() { this.disconnected = true; }
+    emit(value) { this.callback([{ target: this.target, isIntersecting: value }]); }
+  };
+  window.matchMedia = () => ({ matches: false, addEventListener: (_, handler) => listeners.add(handler), removeEventListener: (_, handler) => listeners.delete(handler) });
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  let card;
+  try {
+    const fixtureResult = fixture(); card = fixtureResult.card;
+    fixtureResult.hass.states['climate.room'] = thermostat({ hvac_action: 'heating' }); card.hass = fixtureResult.hass;
+    await card.updateComplete;
+    const moving = () => card.shadowRoot.querySelector('.room-scene')?.classList.contains('moving');
+    assert.equal(moving(), false);
+    observers.at(-1).emit(true); await card.updateComplete; assert.equal(moving(), true);
+    observers.at(-1).emit(false); await card.updateComplete; assert.equal(moving(), false);
+    observers.at(-1).emit(true);
+    hidden = true; document.dispatchEvent(new Event('visibilitychange')); await card.updateComplete; assert.equal(moving(), false);
+    hidden = false; document.dispatchEvent(new Event('visibilitychange')); await card.updateComplete; assert.equal(moving(), true);
+    for (const handler of listeners) handler({ matches: true }); await card.updateComplete; assert.equal(moving(), false);
+    for (const handler of listeners) handler({ matches: false }); await card.updateComplete; assert.equal(moving(), true);
+    card._details = true; await card.updateComplete; assert.equal(moving(), false);
+    card._details = false;
+    const old = observers.at(-1);
+    card.setConfig({ ...card._config, animate_scene: false }); await card.updateComplete;
+    assert.ok(old.disconnected); assert.equal(listeners.size, 0); assert.equal(moving(), false);
+    old.emit(true); assert.equal(card._sceneVisible, false, 'late observer callbacks are ignored');
+    card.setConfig({ ...card._config, animate_scene: true }); await card.updateComplete;
+    assert.equal(listeners.size, 1);
+    observers.at(-1).emit(true); await card.updateComplete; assert.equal(moving(), true);
+    card.remove(); assert.ok(observers.at(-1).disconnected); assert.equal(listeners.size, 0);
+    observers.at(-1).emit(true); assert.equal(card._sceneVisible, false);
+    document.body.append(card); await card.updateComplete; assert.equal(listeners.size, 1); assert.equal(moving(), false);
+  } finally {
+    card?.remove();
+    if (previousObserver === undefined) delete globalThis.IntersectionObserver; else globalThis.IntersectionObserver = previousObserver;
+    window.matchMedia = previousMatchMedia;
+    if (hiddenDescriptor) Object.defineProperty(document, 'hidden', hiddenDescriptor); else delete document.hidden;
+  }
 });

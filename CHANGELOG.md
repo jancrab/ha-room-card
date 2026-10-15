@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Add an original atmospheric room scene with theme-aware light/dark palettes, a larger current temperature and calmer control surfaces.
+- Use confirmed HVAC action for warm heating and cool cooling states; keep off/unavailable neutral and all existing entity/service behavior intact.
+- Add independent background and animation switches to the native visual editor, preserving existing YAML.
+- Pause scene motion offscreen, in hidden tabs, in room details and for reduced-motion preferences; clean up observers and ignore late callbacks.
+- Expand the bundled-card preview with fixed card widths, long-name and missing-reading fixtures, plus regression tests for scene states and motion lifecycle.
+
 ## 0.4.0
 
 - Redesign Compact as a focused room overview with larger labels, one presence line and a stable temperature/light hierarchy.

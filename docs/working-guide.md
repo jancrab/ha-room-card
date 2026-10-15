@@ -38,3 +38,9 @@ Sources: https://hacs.dev/docs/publish/plugin/ and https://developers.home-assis
 ## Focused layouts and placement
 
 Item `display` can be card, details or hidden; absence means the layout default. Compact defaults scenes/devices to details; automations default to details in both modes. An explicit card placement also pins closed-contact duration. Legacy enabled:false remains excluded. Section visibility applies to both views. All off acts only on included lights currently placed on the card; details-only lights retain individual control in the dialog. Reordering must preserve every item field and unknown configuration. Details must expose actual toggles/scene actions before controls are moved off the overview. Dimmer disclosures should retain their open state across HA updates. Never summarize unavailable contacts as closed. Keep readable labels and 44px hit targets; use full accessible names and detail labels when narrow layouts truncate captions.
+
+## Atmospheric scene
+
+The original inline SVG room is decorative and hidden from accessibility APIs. It must never imply measured light, window position or a thermostat action not reported by HA. HVAC action alone drives heat/cool motion, with off/unavailable precedence. `show_scene` and `animate_scene` are independent saved editor options. Use HA fonts/text/surfaces and separate overridable light/dark scene palettes; keep controls above a contrast layer.
+
+Motion requires a visible intersection, a visible document, no room dialog and no reduced-motion preference. Without IntersectionObserver stay static. Reconfiguration/removal must release the observer and document/media-query listeners; queued callbacks from disconnected observers must not revive animation. Verify actual fixed card widths (280/360/480 px), not only viewport sizes. Use the real bundle and clearly simulated preview fixtures; reduced-motion and hidden-tab lifecycle tests use controlled browser API mocks.

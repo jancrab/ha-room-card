@@ -5,6 +5,7 @@ const entity = (name, domains, multiple = false) => ({ name, selector: { entity:
 const bool = name => ({ name, selector: { boolean: {} } });
 const text = name => ({ name, selector: { text: {} } });
 const labels = {
+  show_scene: 'Atmospheric room background', animate_scene: 'Animate while heating or cooling',
   name: 'Room name', subtitle: 'Subtitle (optional)', icon: 'Room icon', compact: 'Compact layout', show_labels: 'Show icon labels',
   climate: 'Thermostat', temperature: 'Temperature sensor (optional override)', humidity: 'Humidity sensor', presence: 'Presence / motion sensor', activity: 'Last activity timestamp entity (optional)',
   temperature_step: 'Temperature adjustment step (default 0.5; respects device step)', lights: 'Lights (maximum 5)', scenes: 'Scenes', devices: 'Devices / switches / fans', automations: 'Automations', windows: 'Window contact sensors', doors: 'Door contact sensors',
@@ -46,7 +47,7 @@ export class RoomCardEditor extends LitElement {
     this._emit(next.area && next.area !== this._config.area ? this._fillSuggestions(next) : next);
   }
   _form(schema) {
-    const data = { compact: this._config.layout !== 'wide', show_labels: true, ...Object.fromEntries(['thermostat', 'humidity', 'presence', 'contacts', 'lights', 'scenes', 'devices', 'automations'].map(key => [`show_${key}`, true])), ...this._config };
+    const data = { show_scene: true, animate_scene: true, compact: this._config.layout !== 'wide', show_labels: true, ...Object.fromEntries(['thermostat', 'humidity', 'presence', 'contacts', 'lights', 'scenes', 'devices', 'automations'].map(key => [`show_${key}`, true])), ...this._config };
     for (const key of Object.keys(LISTS)) data[key] = (this._config[key] || []).map(entityId);
     const query = (this._search || '').trim().toLowerCase();
     const allIds = Object.keys(this.hass?.states || {});
@@ -93,11 +94,12 @@ export class RoomCardEditor extends LitElement {
       ${this._form([{ name: 'area', selector: { area: {} } }])}
       <div class="scope"><label>Search all entities<input type="search" placeholder="Search names or IDs across all rooms…" .value=${this._search || ''} @input=${event => { this._search = event.target.value; }}></label><label class="scope-toggle"><input type="checkbox" .checked=${!!this._allRooms} @change=${event => { this._allRooms = event.target.checked; }}> Browse all rooms</label><button @click=${() => this._emit(this._fillSuggestions(this._config))} ?disabled=${!this._config.area}>Fill empty fields from room</button></div>
       <p class="hint">${this._config.area ? `${areaEntityIds(this.hass, this._config.area).length} room entities found. Room selection fills empty fields; existing selections and custom overrides are kept. Search above to select from any room. Up to five lights are suggested.` : 'Select a room for automatic suggestions and room-only pickers. You can always search across all rooms.'}${this._config.area && !this.hass.entities ? ' HA registries are not loaded yet; browse all rooms to choose manually.' : ''}</p>
-      <details open><summary>Room & layout</summary>${this._form([text('name'), text('subtitle'), { name: 'icon', selector: { icon: {} } }, bool('compact'), bool('show_labels')])}</details>
+      <details open><summary>Room & layout</summary>${this._form([text('name'), text('subtitle'), { name: 'icon', selector: { icon: {} } }, bool('compact')])}</details>
       <details><summary>Temperature & presence</summary>${this._form([bool('show_thermostat'), entity('climate', ['climate']), entity('temperature', ['sensor']), { name: 'temperature_step', selector: { number: { min: 0.1, max: 10, step: 0.1, mode: 'box' } } }, bool('show_humidity'), entity('humidity', ['sensor']), bool('show_presence'), entity('presence', ['binary_sensor']), { name: 'presence_hold_minutes', selector: { number: { min: 0, max: 120, step: 1, mode: 'box' } } }, entity('activity', ['sensor', 'input_datetime'])])}<p class="hint">Occupancy uses the binary sensor state and last_changed. An optional hold after off is labeled Recent activity, not confirmed occupancy. The thermostat supplies temperature when no separate sensor is selected. Range thermostats open native HA details.</p></details>
       <details><summary>Lights · ${this._config.lights?.length || 0}</summary>${this._form([bool('show_lights'), entity('lights', LISTS.lights, true)])}${this._itemForms('lights')}</details>
       <details><summary>Window & door contacts</summary>${this._form([bool('show_contacts'), entity('windows', LISTS.windows, true), entity('doors', LISTS.doors, true)])}${this._itemForms('windows')}${this._itemForms('doors')}</details>
       ${['scenes', 'devices', 'automations'].map(key => html`<details><summary>${labels[key]} · ${this._config[key]?.length || 0}</summary>${this._form([bool(`show_${key}`), entity(key, LISTS[key], true)])}${this._itemForms(key)}</details>`)}
+      <details><summary>Appearance</summary>${this._form([bool('show_scene'), bool('animate_scene'), bool('show_labels')])}<p class="hint">The scene follows confirmed heating or cooling. Off and unavailable stay neutral. Motion pauses offscreen and respects reduced-motion preferences. Colors and fonts follow your HA theme.</p></details>
     `;
   }
 }

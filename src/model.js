@@ -10,7 +10,8 @@ export const available = state => !!state && !['unknown', 'unavailable'].include
 export function climateAppearance(state) {
   if (!available(state)) return 'unavailable';
   if (state.state === 'off') return 'off';
-  return ['heating', 'preheating'].includes(state.attributes?.hvac_action) ? 'heating' : 'idle';
+  if (['heating', 'preheating'].includes(state.attributes?.hvac_action)) return 'heating';
+  return state.attributes?.hvac_action === 'cooling' ? 'cooling' : 'idle';
 }
 export const number = value => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) && Number.isFinite(Number(value)) ? Number(value) : null;
 
@@ -30,7 +31,7 @@ export function validateConfig(value) {
   const config = migrateConfig(value);
   for (const key of ['name', 'subtitle', 'icon', 'area']) if (config[key] !== undefined && typeof config[key] !== 'string') throw new Error(`${key} must be text.`);
   if (config.presence_hold_minutes !== undefined && (typeof config.presence_hold_minutes !== 'number' || !Number.isFinite(config.presence_hold_minutes) || config.presence_hold_minutes < 0 || config.presence_hold_minutes > 120)) throw new Error('Presence hold time must be between 0 and 120 minutes.');
-  for (const key of ['compact', 'show_labels', ...SECTIONS.map(section => `show_${section}`)]) if (config[key] !== undefined && typeof config[key] !== 'boolean') throw new Error(`${key} must be true or false.`);
+  for (const key of ['compact', 'show_labels', 'show_scene', 'animate_scene', ...SECTIONS.map(section => `show_${section}`)]) if (config[key] !== undefined && typeof config[key] !== 'boolean') throw new Error(`${key} must be true or false.`);
   if (config.layout !== undefined && !['compact', 'wide'].includes(config.layout)) throw new Error('Layout must be compact or wide.');
   if (config.temperature_step !== undefined && (typeof config.temperature_step !== 'number' || !Number.isFinite(config.temperature_step) || config.temperature_step <= 0 || config.temperature_step > 10)) throw new Error('Temperature step must be greater than zero and at most 10.');
   const checkId = (id, domains, key) => {

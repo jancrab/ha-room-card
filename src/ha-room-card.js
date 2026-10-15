@@ -8,7 +8,7 @@ export { validateConfig } from './model.js';
 const mdi = (name) => html`<ha-icon .icon=${name}></ha-icon>`;
 const defaultIcons = { lights: 'mdi:lightbulb-outline', scenes: 'mdi:palette-outline', devices: 'mdi:power-plug-outline', automations: 'mdi:lightning-bolt-outline' };
 export class RoomCard extends LitElement {
-  static properties = { hass: { attribute: false, hasChanged: () => true }, _states: { state: true, hasChanged: () => true }, _config: { state: true }, _busy: { state: true }, _error: { state: true }, _message: { state: true }, _scenePulse: { state: true }, _details: { state: true } };
+  static properties = { hass: { attribute: false, hasChanged: () => true }, _states: { state: true, hasChanged: () => true }, _config: { state: true }, _busy: { state: true }, _error: { state: true }, _message: { state: true }, _scenePulse: { state: true }, _details: { state: true }, _sceneVisible: { state: true }, _pageHidden: { state: true }, _reducedMotion: { state: true } };
   static styles = cardStyles;
   constructor() {
     super(); this._waiters = new Set(); this._busy = false; this._generation = 0;
@@ -21,9 +21,11 @@ export class RoomCard extends LitElement {
     request.callback = (states, unsubscribe) => { this._states = states; this._unsubscribe = unsubscribe; };
     this.dispatchEvent(request);
     this._clock = setInterval(() => this.requestUpdate(), 30000);
+    this._startSceneObservers();
   }
   disconnectedCallback() {
     clearInterval(this._clock); clearTimeout(this._messageTimer); clearTimeout(this._pulseTimer);
+    this._stopSceneObservers();
     this._unsubscribe?.(); this._unsubscribe = undefined; this._states = undefined;
     for (const waiter of this._waiters) waiter.finish(false);
     this._generation++; this._busy = false;
@@ -35,6 +37,53 @@ export class RoomCard extends LitElement {
     this._config = validateConfig(value); this._generation++; this._busy = false; this._error = ''; this._message = '';
     clearTimeout(this._pulseTimer); this._scenePulse = undefined;
     for (const waiter of this._waiters) waiter.finish(false);
+    if (this.isConnected) this._startSceneObservers();
+  }
+  _stopSceneObservers() {
+    this._sceneObserver?.disconnect(); this._sceneObserver = undefined;
+    if (this._visibilityHandler) document.removeEventListener('visibilitychange', this._visibilityHandler);
+    this._motionQuery?.removeEventListener?.('change', this._motionHandler);
+    this._motionQuery = undefined; this._visibilityHandler = undefined; this._motionHandler = undefined;
+    this._sceneVisible = false;
+  }
+  _startSceneObservers() {
+    this._stopSceneObservers();
+    if (this._config?.show_scene === false || this._config?.animate_scene === false) return;
+    this._pageHidden = document.hidden;
+    this._visibilityHandler = () => { this._pageHidden = document.hidden; };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
+    this._motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    this._reducedMotion = this._motionQuery?.matches ?? false;
+    this._motionHandler = event => { this._reducedMotion = event.matches; };
+    this._motionQuery?.addEventListener?.('change', this._motionHandler);
+    // Without an observer, keep a complete static scene rather than animate offscreen.
+    if (typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver(entries => {
+        if (this._sceneObserver !== observer || !this.isConnected) return;
+        this._sceneVisible = entries.some(entry => entry.target === this && entry.isIntersecting);
+      });
+      this._sceneObserver = observer;
+      observer.observe(this);
+    }
+  }
+  _renderScene(appearance) {
+    if (this._config.show_scene === false) return nothing;
+    const moving = ['heating', 'cooling'].includes(appearance) && this._config.animate_scene !== false && this._sceneVisible && !this._pageHidden && !this._reducedMotion && !this._details;
+    return html`<div class="room-scene ${appearance} ${moving ? 'moving' : 'still'}" aria-hidden="true">
+      <div class="scene-light"></div>
+      <svg class="scene-volume" viewBox="0 0 480 300" focusable="false">
+        <path class="scene-wall-back" d="M80 55 292 20 292 174 80 230Z"/>
+        <path class="scene-wall-side" d="m292 20 158 81v151l-158-78Z"/>
+        <path class="scene-floor" d="m80 230 212-56 158 78-209 45Z"/>
+        <path class="scene-window" d="m324 65 86 44v77l-86-42Z"/>
+        <path class="scene-window-frame" d="m367 87 0 78m-43-60 86 43"/>
+        <g class="scene-current" fill="none">
+          <path d="M110 198c43-46 88 9 149-47s83-28 130-38"/>
+          <path d="M105 220c46-44 101 10 160-43s78-29 124-38"/>
+          <path d="M120 240c45-38 96 10 151-39s78-26 118-36"/>
+        </g>
+      </svg><div class="scene-scrim"></div>
+    </div>`;
   }
   static getStubConfig() { return { name: 'Room', compact: true }; }
   static async getConfigElement() {
@@ -191,7 +240,7 @@ export class RoomCard extends LitElement {
     const step = this._config.temperature_step ?? 0.5;
     const next = direction => targetTemperature(climate, direction, step);
     const supported = target !== null && next(1) !== null;
-    return html`<div class="thermostat ${appearance}"><div class="temperature-reading"><div class="current" aria-label=${`Current temperature ${this._format(current)} ${unit}`}>${this._format(current)}<span class="unit">${unit}</span></div>${this._config.climate ? html`<div class="hvac ${heating ? 'heating' : ''}">${mdi(heating ? 'mdi:fire' : 'mdi:thermostat')}${action}</div>` : nothing}</div>${this._config.climate ? supported ? html`<div class="target"><button aria-label="Decrease target temperature" ?disabled=${this._busy || next(-1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(-1)}>−</button><div class="target-center" aria-label=${`Target temperature ${this._format(target)} ${this._unit(climate)}`}><small>Target</small><span>${this._format(target)}${unit === this._unit(climate) ? '°' : this._unit(climate)}</span></div><button aria-label="Increase target temperature" ?disabled=${this._busy || next(1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(1)}>+</button></div>` : html`<button class="target-readonly" @click=${() => this._moreInfo(this._config.climate)}>${!available(climate) ? 'Thermostat unavailable' : climate.state === 'heat_cool' ? `${this._format(climate.attributes?.target_temp_low)}–${this._format(climate.attributes?.target_temp_high)} ${this._unit(climate)} · Details` : 'Thermostat details'}</button>` : nothing}</div>`;
+    return html`<div class="thermostat ${appearance}"><div class="temperature-reading"><div class="current" aria-label=${`Current temperature ${this._format(current)} ${unit}`}>${this._format(current)}<span class="unit">${unit}</span></div>${this._config.climate ? html`<div class="hvac ${heating ? 'heating' : ''}">${mdi(heating ? 'mdi:fire' : appearance === 'cooling' ? 'mdi:snowflake' : 'mdi:thermostat')}${action}</div>` : nothing}</div>${this._config.climate ? supported ? html`<div class="target"><button aria-label="Decrease target temperature" ?disabled=${this._busy || next(-1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(-1)}>−</button><div class="target-center" aria-label=${`Target temperature ${this._format(target)} ${this._unit(climate)}`}><small>Target</small><span>${this._format(target)}${unit === this._unit(climate) ? '°' : this._unit(climate)}</span></div><button aria-label="Increase target temperature" ?disabled=${this._busy || next(1) === target || !this._serviceAvailable('climate', 'set_temperature')} @click=${() => this._temperature(1)}>+</button></div>` : html`<button class="target-readonly" @click=${() => this._moreInfo(this._config.climate)}>${!available(climate) ? 'Thermostat unavailable' : climate.state === 'heat_cool' ? `${this._format(climate.attributes?.target_temp_low)}–${this._format(climate.attributes?.target_temp_high)} ${this._unit(climate)} · Details` : 'Thermostat details'}</button>` : nothing}</div>`;
   }
   _feedback() {
     return html`${this._error ? html`<div class="message error" role="alert">${this._error}<button aria-label="Dismiss error" @click=${() => { this._error = ''; }}>×</button></div>` : nothing}<div class="message status" role="status" aria-live="polite">${this._busy ? 'Sending command · waiting for Home Assistant…' : this._message || nothing}</div>`;
@@ -230,13 +279,15 @@ export class RoomCard extends LitElement {
     const timestamp = activityTimestamp(this._state(config.activity));
     const hasEntities = ['climate', 'temperature', 'humidity', 'presence', 'activity'].some(key => config[key]) || ['lights', 'scenes', 'devices', 'automations', 'windows', 'doors'].some(key => config[key]?.length);
     const hasFavorites = ['scenes', 'devices', 'automations'].some(key => this._cardItems(key).length);
-    return html`<ha-card class="${config.compact ? 'compact' : ''} ${config.show_labels === false ? 'labels-off' : ''}">
+    const appearance = this._shown('thermostat') && config.climate ? climateAppearance(climate) : 'idle';
+    return html`<ha-card class="${config.compact ? 'compact' : ''} ${config.show_labels === false ? 'labels-off' : ''} ${config.show_scene !== false ? 'scene-enabled' : ''} ${this.hass?.themes?.darkMode ? 'scheme-dark' : 'scheme-light'} scene-${appearance}">
+      ${this._renderScene(appearance)}<div class="room-content">
       <header class="header"><div class="title"><h2><button @click=${this._openDetails}>${config.icon ? mdi(config.icon) : nothing}${config.name || 'Room'}</button></h2>${!config.compact && config.subtitle ? html`<p class="subtitle">${config.subtitle}</p>` : nothing}</div>${this._shown('humidity') && (config.humidity || humidity !== null) ? html`<span class="humidity" aria-label=${`Humidity ${this._format(humidity)} percent`}>${mdi('mdi:water-percent')}${this._format(humidity)}%</span>` : nothing}</header>
       ${this._shown('presence') && (config.presence || config.activity) ? html`<div class="presence ${occupancy.active ? 'on' : ''}"><span class="presence-dot" aria-hidden="true"></span>${config.presence ? occupancy.label === 'Recent activity' ? `Recent activity · ${relativeTime(this._state(config.presence)?.last_changed)}` : occupancy.detail : `Last activity · ${timestamp ? relativeTime(timestamp) : 'unavailable'}`}</div>` : nothing}
       ${this._renderTemperature()}${this._group('lights', 'Lights')}
       ${hasFavorites ? html`<div class="secondary">${this._group('scenes', 'Scenes')}${this._group('devices', 'Devices')}${this._group('automations', 'Automations')}</div>` : nothing}
       ${hasEntities ? html`<footer class="room-footer">${this._renderContacts()}<button class="details-link" aria-label="Room details" @click=${this._openDetails}>Details <span aria-hidden="true">›</span></button></footer>` : html`<p class="empty">Choose room entities in the visual card editor. Add a thermostat, lights, contacts or other controls to get started.</p>`}
-      ${!this._details ? this._feedback() : nothing}${this._renderDetails()}
+      ${!this._details ? this._feedback() : nothing}</div>${this._renderDetails()}
     </ha-card>`;
   }
 }

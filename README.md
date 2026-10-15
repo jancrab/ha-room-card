@@ -1,6 +1,8 @@
 # HA Room Card
 
-A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.4.0** adds a focused compact layout, readable controls and configurable placement in the actual card and visual editor bundled in `dist/ha-room-card.js`.
+A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.5.0** adds an atmospheric room scene, theme-aware light/dark palettes and optional HVAC animation to the actual card and visual editor bundled in `dist/ha-room-card.js`.
+
+Screenshots show the bundled card with simulated data. [Dark preview](demo/ha-preview-dark.png) · [Mobile preview](demo/ha-compact-mobile.png).
 
 ![Built room card](demo/ha-preview.png)
 
@@ -20,7 +22,7 @@ A compact, theme-native **Home Assistant dashboard card for one room**. Add one 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jancrab&repository=ha-room-card&category=plugin)
 
 1. In HACS, add `https://github.com/jancrab/ha-room-card` as a custom **Dashboard** repository.
-2. Download/update **HA Room Card** to v0.4.0 or later.
+2. Download/update **HA Room Card** to v0.5.0 or later.
 3. Check the existing JavaScript module resource: `/hacsfiles/ha-room-card/ha-room-card.js`. Do not register the same card twice.
 4. Reload the frontend; if the old entity-only card/editor persists, hard-refresh or clear the frontend cache. For manual module URLs, update their version query to `?v=0.2.0`.
 5. Edit your dashboard, choose **Add card**, then search for **HA Room Card**. This is a dashboard card, not an integration or entity row.
@@ -41,7 +43,23 @@ Entity pickers show room entities and existing explicit selections by default. *
 
 The presence badge follows the actual binary sensor: on = Occupied, off = Clear; the small duration uses last_changed. Optional presence_hold_minutes retains an explicitly labeled **Recent activity** indication after off, not confirmed occupancy. Default 0 disables the hold. An unavailable sensor is never inferred as occupied.
 
-The thermostat panel is lightly red for reported heating/preheating, gray for off, neutral for idle and dashed when unavailable. Its mode takes precedence over stale action metadata. The optional CSS variable --room-heating-color can override the red accent.
+The room background has an original, softly lit room-corner scene: warm for reported heating/preheating, cool for cooling, neutral for idle and muted for off/unavailable. The thermostat is dashed when unavailable. Mode takes precedence over stale action metadata; setting a target never starts a visual heating state. The optional CSS variables `--room-heating-color` and `--room-cooling-color` control the HVAC icon accents.
+
+## Appearance
+
+In **Appearance** in the visual editor, independently switch the atmospheric background, HVAC animation and icon captions on or off. Existing YAML works unchanged; `show_scene` and `animate_scene` default to `true`. Set `show_scene: false` for the plain surface. Compact placement, room details and all entity mappings are preserved.
+
+The scene inherits HA text, surface, border and font settings. HA's dark-mode state selects a separate dark palette. Override these CSS variables through your theme or card styling:
+
+| Scene | Light variable / default | Dark variable / default |
+| --- | --- | --- |
+| Neutral | `--room-scene-neutral-light`: `#8da7ae` | `--room-scene-neutral-dark`: `#57777e` |
+| Heating | `--room-scene-warm-light`: `#d4926e` | `--room-scene-warm-dark`: `#b87959` |
+| Cooling | `--room-scene-cool-light`: `#74a8c9` | `--room-scene-cool-dark`: `#538db0` |
+
+Only confirmed heating/cooling animates the subtle airflow lines. Motion stops offscreen, in hidden tabs, while room details are open, when disabled in the editor, or with the system's reduced-motion preference. An unavailable visibility observer falls back to a static scene. No Canvas, external assets, fonts or runtime CDN are used.
+
+Visual inspiration: [Origami Weather](https://github.com/hazymorning/origami_weather). The room geometry and implementation here are original; no source code or assets from that project were copied. This repository retains its MIT license.
 
 ## Example configuration
 
@@ -85,6 +103,8 @@ Every section is optional. Replace the example IDs with your own entities. Light
 | `name`, `subtitle`, `icon` | Room heading, optional subtitle and MDI icon. Name defaults to Room. |
 | `compact` | Focused overview with temperature, lights and contact status; `true`. Secondary controls default to room details. |
 | `show_labels` | Captions under icons; `true`. |
+| `show_scene` | Atmospheric room background; `true`. |
+| `animate_scene` | Animate confirmed heating/cooling when visible and motion is permitted; `true`. |
 | `climate` | Climate entity for target/current temperature and HVAC action. |
 | `temperature` | Optional temperature sensor overriding the current reading. |
 | `temperature_step` | Requested adjustment step; `0.5`. Native step and bounds are respected. |
@@ -131,6 +151,6 @@ npm run dev
 
 Open http://127.0.0.1:4173 (set `PORT` if occupied). **The canonical preview loads the real built bundle**, with explicitly mocked HA transport and form widgets. It exercises the same card and editor shipped to users. The older standalone visual prototype remains at `/demo/index.html` for design reference.
 
-Tests cover configuration/migration, real service payloads, state confirmation, errors/timeouts, capabilities, contact times, reused HA state objects, subscription cleanup and the editor bootstrap. Browser QA covers the built card and editor on desktop/mobile. No physical-device or authenticated live Home Assistant verification has been performed in this workspace; mock tests do not establish integration-specific behavior.
+Tests cover configuration/migration, real service payloads, state confirmation, errors/timeouts, capabilities, contact times, reused HA state objects, subscription cleanup, atmospheric state/motion lifecycle and the editor bootstrap. Preview test controls include fixed 280/360/480 px card widths, long names, missing readings and heating/cooling/off/unavailable states. Browser QA covers the built card and editor on desktop/mobile. No physical-device or authenticated live Home Assistant verification has been performed in this workspace; mock tests do not establish integration-specific behavior.
 
 MIT; see [LICENSE](LICENSE). Development guidance: [AGENTS.md](AGENTS.md) and [working guide](docs/working-guide.md).

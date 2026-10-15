@@ -6,6 +6,7 @@ const iconPaths = {
   water:'M12 2C9 7 5 10 5 15a7 7 0 0 0 14 0c0-5-4-8-7-13Z', lightning:'m13 2-9 12h7l-1 8 10-13h-7z',
   home:'m3 10 9-7 9 7v10H3zM9 20v-7h6v7', plug:'M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0ZM12 17v5',
   palette:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4h-1a2 2 0 0 1 0-4h6a3 3 0 0 0 3-3c0-4-4-7-9-7ZM7 8h.1M12 6h.1M17 8h.1',
+  snowflake:'M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 3 3-3M9 20l3-3 3 3',
   fire:'M12 2c1 5 6 7 6 12a6 6 0 0 1-12 0c0-3 2-6 3-7 0 3 1 4 2 4 2-3 1-5 1-9Z',
   information:'M12 10v7m0-10v.1M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
   fan:'M10 10C3 4 10 0 13 4l-1 6m2 1c8-3 8 5 3 6l-4-3m-3 0c-1 9-8 5-7 1l7-3',
@@ -77,7 +78,7 @@ const configs = ['Living room', 'Kitchen', 'Bedroom', 'Office', 'Bathroom'].map(
 });
 let failNext=false;
 const cards=[];
-const hass={states,locale:{language:'en'},config:{unit_system:{temperature:'°C'}},services:Object.fromEntries(['light','switch','fan','automation','scene','climate'].map(domain=>[domain,{turn_on:{},turn_off:{},set_temperature:{}}])),callService:async(domain,service,data)=>{
+const hass={states,themes:{darkMode:false},locale:{language:'en'},config:{unit_system:{temperature:'°C'}},services:Object.fromEntries(['light','switch','fan','automation','scene','climate'].map(domain=>[domain,{turn_on:{},turn_off:{},set_temperature:{}}])),callService:async(domain,service,data)=>{
   document.querySelector('#service-log').textContent=`${domain}.${service} ${JSON.stringify(data)}`;
   await new Promise(resolve=>setTimeout(resolve,120));
   if(failNext){failNext=false;throw new Error('Simulated backend failure. State unchanged.');}
@@ -99,7 +100,7 @@ document.querySelector('#edit').addEventListener('click',async()=>{
   document.querySelector('#editor-dialog').showModal();
 });
 document.querySelector('#close-editor').onclick=()=>document.querySelector('#editor-dialog').close();
-document.querySelector('#theme').onclick=event=>{const dark=document.body.classList.toggle('dark');event.target.textContent=dark?'Light theme':'Dark theme';};
+document.querySelector('#theme').onclick=event=>{const dark=document.body.classList.toggle('dark');event.target.textContent=dark?'Light theme':'Dark theme';hass.themes={darkMode:dark};refresh();};
 document.querySelector('#layout').onclick=event=>{const compact=!configs[0].compact;configs.forEach((config,i)=>{config.compact=compact;cards[i].setConfig(config);});if(editor)editor.setConfig(configs[0]);event.target.textContent=compact?'Standard layout':'Compact layout';};
 document.querySelector('#fail').onclick=()=>{failNext=true;document.querySelector('#service-log').textContent='Next command will fail.';};
 document.querySelector('#offline').onclick=()=>{const id='light.living_room_0';states[id]={...states[id],state:states[id].state==='unavailable'?'on':'unavailable'};refresh();};
@@ -107,4 +108,23 @@ document.querySelector('#window').onclick=()=>{const id='binary_sensor.living_ro
 document.addEventListener('hass-more-info',event=>{const state=states[event.detail.entityId];document.querySelector('#info-title').textContent=state?.attributes.friendly_name||event.detail.entityId;document.querySelector('#info-content').textContent=JSON.stringify(state,null,2);document.querySelector('#info-dialog').showModal();});
 document.querySelector('#close-info').onclick=()=>document.querySelector('#info-dialog').close();
 
-document.querySelector('#heating-state').onchange=event=>{const value=event.target.value;const id='climate.living_room';states[id]={...states[id],state:['off','unavailable'].includes(value)?value:'heat',attributes:{...states[id].attributes,hvac_action:value}};refresh();};
+document.querySelector('#heating-state').onchange=event=>{const value=event.target.value;const id='climate.living_room';states[id]={...states[id],state:['off','unavailable'].includes(value)?value:value==='cooling'?'cool':'heat',attributes:{...states[id].attributes,hvac_action:value}};refresh();};
+
+// Fixed card widths exercise container queries independently of the browser viewport.
+document.querySelector('#card-width').onchange=event=>{const width=event.target.value;const rooms=document.querySelector('#rooms');rooms.style.gridTemplateColumns=width?`repeat(auto-fit, ${width}px)`:'';};
+
+let longNames = false, missingReadings = false;
+document.querySelector('#long-names').onclick=()=>{
+  longNames=!longNames;
+  configs[0]={...configs[0],name:longNames?'Living room and open-plan dining area':'Living room',windows:[{entity:'binary_sensor.living_room_window',name:longNames?'Floor-to-ceiling balcony window':'Window'}]};
+  states['light.living_room_0'].attributes.friendly_name=longNames?'Ceiling pendant above dining table':'Ceiling';
+  cards[0].setConfig(configs[0]);if(editor)editor.setConfig(configs[0]);refresh();
+};
+document.querySelector('#missing-readings').onclick=()=>{
+  missingReadings=!missingReadings;
+  const climate=states['climate.living_room'];
+  states['climate.living_room']={...climate,attributes:{...climate.attributes,current_temperature:missingReadings?null:21.4,temperature:missingReadings?null:22}};
+  states['sensor.living_room_humidity']={...states['sensor.living_room_humidity'],state:missingReadings?'unknown':'46'};
+  states['binary_sensor.living_room_presence']={...states['binary_sensor.living_room_presence'],state:missingReadings?'unknown':'on'};
+  refresh();
+};

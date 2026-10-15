@@ -3,7 +3,8 @@ export const cardStyles = css`
   :host {
     display:block; container-type:inline-size;
     color:var(--primary-text-color,#263d36);
-    font-family:var(--paper-font-body1_-_font-family,inherit);
+    font-family:var(--ha-font-family-body,var(--paper-font-body1_-_font-family,inherit));
+    font-variant-numeric:tabular-nums;
     --room-muted:var(--secondary-text-color,#69766e);
     --room-line:var(--ha-card-border-color,var(--divider-color,#e2e5dc));
     --room-bg:var(--ha-card-background,var(--card-background-color,#fff));
@@ -13,7 +14,7 @@ export const cardStyles = css`
     --room-heat:var(--room-heating-color,var(--red-color,#c94b4b));
   }
   *{box-sizing:border-box}
-  ha-card{display:block;background:var(--room-bg);border:1px solid var(--room-line);border-radius:var(--ha-card-border-radius,18px);box-shadow:var(--ha-card-box-shadow,none);padding:20px}
+  ha-card{position:relative;isolation:isolate;display:block;background:var(--room-bg);border:1px solid var(--room-line);border-radius:var(--ha-card-border-radius,16px);box-shadow:var(--ha-card-box-shadow,none);padding:20px}
   h2,h3,p{margin:0}
   button,input,summary{font:inherit}
   button{color:inherit;cursor:pointer;min-height:44px;border:0;background:transparent;border-radius:8px;font-size:14px}
@@ -35,8 +36,8 @@ export const cardStyles = css`
   .thermostat.unavailable{border-style:dashed}
   .thermostat.sensor-only{padding:0;border:0;background:none}
   .temperature-reading{min-width:0}
-  .current{font-size:36px;letter-spacing:-1px;font-weight:500;white-space:nowrap;line-height:1.15}
-  .unit{font-size:14px;color:var(--room-muted);margin-left:3px;letter-spacing:0}
+  .current{font-size:44px;letter-spacing:-1px;font-weight:500;white-space:nowrap;line-height:1.15}
+  .unit{font-size:12px;color:var(--room-muted);margin-left:3px;letter-spacing:0}
   .hvac{display:flex;align-items:center;gap:4px;font-size:12px;margin-top:4px;line-height:1.4;overflow-wrap:anywhere;text-transform:capitalize}
   .hvac ha-icon{--mdc-icon-size:14px}
   .hvac.heating ha-icon{color:var(--room-heat)}
@@ -72,11 +73,12 @@ export const cardStyles = css`
   .contact ha-icon{--mdc-icon-size:16px}
   .contact.open{color:var(--primary-text-color,#263d36)}
   .contact.open ha-icon{color:var(--room-amber)}
+  .contact>span{min-width:0;overflow-wrap:anywhere}
   .contact time{white-space:nowrap;font-variant-numeric:tabular-nums}
   .details-link{display:flex;align-items:center;gap:6px;flex-shrink:0;min-width:44px;padding:0;margin-left:auto;color:var(--room-muted)}
   .details-link>span,.history>span{font-size:24px}
   .labels-off .tile>span{display:none}
-  .compact{padding:12px}
+  .compact{padding:16px}
   .compact .presence{margin-bottom:8px}
   .compact .thermostat{padding:10px;margin:8px 0}
   .compact .tile{min-height:60px;padding:6px 1px}
@@ -121,8 +123,61 @@ export const cardStyles = css`
   .history{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 10px;margin-top:20px;background:var(--room-soft);text-align:left}
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
   @container(max-width:310px){
-    ha-card{padding:12px}.thermostat,.compact .thermostat{padding:8px}.current{font-size:30px}.target-center{min-width:42px;font-size:18px}.target button{min-width:44px}.unit{font-size:12px}
+    ha-card,.compact{padding:16px}.thermostat,.compact .thermostat{padding:8px}.current{font-size:36px}.target-center{min-width:42px;font-size:18px}.target button{min-width:44px}.unit{font-size:12px}
   }
   @container(max-width:260px){.lights-group .tiles{grid-template-columns:repeat(auto-fit,minmax(58px,1fr))}.thermostat{flex-wrap:wrap}.target{width:100%;justify-content:space-between}.header{flex-wrap:wrap}}
+  /* Original room geometry: separate decorative, contrast and content layers. */
+  .room-content{position:relative;z-index:2}
+  .scene-enabled{
+    --scene-neutral:var(--room-scene-neutral-light,#8da7ae);
+    --scene-warm:var(--room-scene-warm-light,#d4926e);
+    --scene-cool:var(--room-scene-cool-light,#74a8c9);
+    --scene-tint:var(--scene-neutral);
+    --scene-strength:.75;
+  }
+  .scene-enabled.scheme-dark{
+    --scene-neutral:var(--room-scene-neutral-dark,#57777e);
+    --scene-warm:var(--room-scene-warm-dark,#b87959);
+    --scene-cool:var(--room-scene-cool-dark,#538db0);
+    --scene-strength:.65;
+  }
+  .scene-heating{--scene-tint:var(--scene-warm)}
+  .scene-cooling{--scene-tint:var(--scene-cool)}
+  .scene-off,.scene-unavailable{--scene-tint:var(--room-muted);--scene-strength:.35}
+  .room-scene{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;background:linear-gradient(145deg,color-mix(in srgb,var(--scene-tint) 12%,var(--room-bg)),var(--room-bg) 75%)}
+  .room-scene *{pointer-events:none}
+  .scene-light{position:absolute;inset:0;background:radial-gradient(ellipse at 80% 10%,color-mix(in srgb,var(--scene-tint) 30%,transparent),transparent 65%);opacity:var(--scene-strength)}
+  .scene-volume{position:absolute;right:-8%;top:12px;width:85%;height:240px;opacity:var(--scene-strength)}
+  .scene-wall-back{fill:color-mix(in srgb,var(--scene-tint) 18%,var(--room-bg))}
+  .scene-wall-side{fill:color-mix(in srgb,var(--scene-tint) 32%,var(--room-bg))}
+  .scene-floor{fill:color-mix(in srgb,var(--scene-tint) 10%,var(--room-bg))}
+  .scene-window{fill:color-mix(in srgb,var(--scene-tint) 7%,var(--room-bg))}
+  .scene-window-frame{fill:none;stroke:color-mix(in srgb,var(--scene-tint) 32%,var(--room-bg));stroke-width:2}
+  .scene-scrim{position:absolute;inset:0;background:linear-gradient(90deg,color-mix(in srgb,var(--room-bg) 80%,transparent),transparent 85%),linear-gradient(0deg,var(--room-bg) 30%,transparent 78%)}
+  .scene-current{stroke:var(--scene-tint);stroke-width:1.5;opacity:0;transform-box:fill-box;transform-origin:center}
+  .heating .scene-current,.cooling .scene-current{opacity:.3}
+  .scene-enabled .thermostat{background:transparent;border-color:transparent;padding:12px 0;gap:8px}
+  .scene-enabled .thermostat.unavailable{border-color:var(--room-line);padding:12px 8px}
+  .scene-enabled .thermostat .target{background:color-mix(in srgb,var(--room-bg) 88%,transparent);border:1px solid var(--room-line);border-radius:14px}
+  .scene-enabled .thermostat .target-center{font-size:22px}
+  .scene-enabled .thermostat .target button{min-height:56px}
+  .scene-enabled .hvac{color:var(--primary-text-color,#263d36)}
+  .thermostat.cooling{background:color-mix(in srgb,var(--room-cooling-color,#4d91b8) 8%,var(--room-bg));border-color:color-mix(in srgb,var(--room-cooling-color,#4d91b8) 20%,var(--room-line))}
+  .scene-enabled .thermostat.cooling{background:transparent;border-color:transparent}
+  .thermostat.cooling .hvac ha-icon{color:var(--room-cooling-color,#4d91b8)}
+  .scene-enabled .tile{border-radius:12px;background:color-mix(in srgb,var(--room-bg) 65%,var(--room-soft));border-color:var(--room-line)}
+  .scene-enabled .tile.active{background:color-mix(in srgb,var(--room-green) 10%,var(--room-bg));border-color:color-mix(in srgb,var(--room-green) 25%,var(--room-line))}
+  .scene-enabled .tile.light.active{background:color-mix(in srgb,var(--room-amber) 10%,var(--room-bg));border-color:color-mix(in srgb,var(--room-amber) 25%,var(--room-line))}
+  .scene-enabled .tile.unavailable{border-style:dashed;border-color:var(--room-muted)}
+  .scene-enabled .scenes-group .tile,.scene-enabled .scenes-details .tile{background:transparent}
+  @container(max-width:310px){.scene-enabled .target-center{min-width:40px}.scene-enabled .thermostat .target-center{font-size:19px}.scene-volume{width:100%;right:-22%}.scene-enabled .thermostat{padding:8px 0}.lights-group .tiles{gap:4px}}
+  @media(prefers-reduced-motion:no-preference){
+    .moving.heating .scene-current{animation:room-warmth 12s ease-in-out infinite}
+    .moving.cooling .scene-current{animation:room-airflow 14s ease-in-out infinite}
+    .scene-light{transition:opacity 200ms}
+  }
+  @keyframes room-warmth{0%,100%{transform:translateY(5px);opacity:.15}50%{transform:translateY(-9px);opacity:.45}}
+  @keyframes room-airflow{0%,100%{transform:translateX(-8px);opacity:.15}50%{transform:translateX(8px);opacity:.4}}
+  @media(prefers-reduced-motion:reduce){.scene-current{animation:none!important}}
   @media(prefers-reduced-motion:no-preference){.tile{transition:background .15s,color .15s}}
 `;
