@@ -41,6 +41,8 @@ Item `display` can be card, details or hidden; absence means the layout default.
 
 ## Atmospheric scene
 
+The denser Compact layout shares grid rows between room identity and thermostat controls. Its footer **Lights off** action must use the same explicit on-card light filtering as Standard's **All off**. Keep the 44px hit area even when the visible outline is smaller. Contact icon containers must not shrink when long names wrap. Browser verification of the simulated 360px card reduced height from about 380px to 253px; preserve the Standard editor toggle and readable missing-data states when adjusting density.
+
 The original inline SVG room is decorative and hidden from accessibility APIs. It must never imply measured light, window position or a thermostat action not reported by HA. HVAC action alone drives heat/cool motion, with off/unavailable precedence. `show_scene` and `animate_scene` are independent saved editor options. Use HA fonts/text/surfaces and separate overridable light/dark scene palettes; keep controls above a contrast layer.
 
 Motion requires a visible intersection, a visible document, no room dialog and no reduced-motion preference. Without IntersectionObserver stay static. Reconfiguration/removal must release the observer and document/media-query listeners; queued callbacks from disconnected observers must not revive animation. Verify actual fixed card widths (280/360/480 px), not only viewport sizes. Use the real bundle and clearly simulated preview fixtures; reduced-motion and hidden-tab lifecycle tests use controlled browser API mocks.

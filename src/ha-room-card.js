@@ -209,11 +209,17 @@ export class RoomCard extends LitElement {
     const disabled = this._busy || offline || (scene ? !this._serviceAvailable('scene', 'turn_on') : !this._canToggle(item));
     return html`<button class="tile ${group === 'lights' ? 'light' : ''} ${active ? 'active' : ''} ${offline ? 'unavailable' : ''}" title=${title} aria-label=${title} aria-pressed=${scene ? nothing : String(active)} ?disabled=${disabled} @click=${() => scene ? this._execute([{ domain: 'scene', service: 'turn_on', data: { entity_id: item.entity } }], null, item.entity) : this._toggle(item)}>${mdi(this._icon(item, group))}<span>${offline ? `${this._name(item)} · Offline` : this._name(item)}</span></button>`;
   }
+  _renderAllOff(compact = false) {
+    const lights = this._cardItems('lights');
+    if (!lights.length) return nothing;
+    const on = lights.some(item => this._state(item.entity)?.state === 'on');
+    return html`<button class="all-off" title="Turn off lights shown on this card" ?disabled=${this._busy || !on || !this._serviceAvailable('light', 'turn_off')} @click=${this._allOff}><span>${compact ? 'Lights off' : 'All off'}</span></button>`;
+  }
   _group(key, title) {
     const items = this._cardItems(key);
     if (!this._shown(key) || !items.length) return nothing;
     const on = items.filter(item => this._state(item.entity)?.state === 'on').length;
-    return html`<section class="group ${key}-group" aria-label=${title}><div class="group-heading"><span>${title}${key === 'lights' ? ` · ${on}/${items.length}` : ''}</span>${key === 'lights' ? html`<button class="all-off" ?disabled=${this._busy || !on || !this._serviceAvailable('light', 'turn_off')} @click=${this._allOff}><span>All off</span></button>` : key === 'automations' ? html`<span>${on} enabled</span>` : nothing}</div><div class="tiles" style=${key === 'lights' ? `--room-light-count:${items.length}` : nothing}>${repeat(items, item => item.entity, item => this._tile(item, key))}</div></section>`;
+    return html`<section class="group ${key}-group" aria-label=${title}>${key === 'lights' && this._config.compact ? html`<span class="sr-only">${on} of ${items.length} lights on</span>` : html`<div class="group-heading"><span>${title}${key === 'lights' ? ` · ${on}/${items.length}` : ''}</span>${key === 'lights' ? this._renderAllOff() : key === 'automations' ? html`<span>${on} enabled</span>` : nothing}</div>`}<div class="tiles" style=${key === 'lights' ? `--room-light-count:${items.length}` : nothing}>${repeat(items, item => item.entity, item => this._tile(item, key))}</div></section>`;
   }
   _contactRows(onCard = false) {
     return ['windows', 'doors'].flatMap(key => (onCard ? this._cardItems(key) : this._items(key)).map(item => ({ item, type: key === 'windows' ? 'window' : 'door', state: this._state(item.entity) })));
@@ -279,14 +285,19 @@ export class RoomCard extends LitElement {
     const timestamp = activityTimestamp(this._state(config.activity));
     const hasEntities = ['climate', 'temperature', 'humidity', 'presence', 'activity'].some(key => config[key]) || ['lights', 'scenes', 'devices', 'automations', 'windows', 'doors'].some(key => config[key]?.length);
     const hasFavorites = ['scenes', 'devices', 'automations'].some(key => this._cardItems(key).length);
+    const hasTemperature = this._shown('thermostat') && (config.climate || config.temperature);
+    const humidityBadge = this._shown('humidity') && (config.humidity || humidity !== null) ? html`<span class="humidity" aria-label=${`Humidity ${this._format(humidity)} percent`}>${mdi('mdi:water-percent')}${this._format(humidity)}%</span>` : nothing;
     const appearance = this._shown('thermostat') && config.climate ? climateAppearance(climate) : 'idle';
     return html`<ha-card class="${config.compact ? 'compact' : ''} ${config.show_labels === false ? 'labels-off' : ''} ${config.show_scene !== false ? 'scene-enabled' : ''} ${this.hass?.themes?.darkMode ? 'scheme-dark' : 'scheme-light'} scene-${appearance}">
       ${this._renderScene(appearance)}<div class="room-content">
-      <header class="header"><div class="title"><h2><button @click=${this._openDetails}>${config.icon ? mdi(config.icon) : nothing}${config.name || 'Room'}</button></h2>${!config.compact && config.subtitle ? html`<p class="subtitle">${config.subtitle}</p>` : nothing}</div>${this._shown('humidity') && (config.humidity || humidity !== null) ? html`<span class="humidity" aria-label=${`Humidity ${this._format(humidity)} percent`}>${mdi('mdi:water-percent')}${this._format(humidity)}%</span>` : nothing}</header>
+      <div class="room-overview ${hasTemperature ? 'has-temperature' : ''}">
+      <header class="header"><div class="title"><h2><button @click=${this._openDetails}>${config.icon ? mdi(config.icon) : nothing}${config.name || 'Room'}</button></h2>${!config.compact && config.subtitle ? html`<p class="subtitle">${config.subtitle}</p>` : nothing}</div>${!config.compact ? humidityBadge : nothing}</header>
+      <div class="room-meta">
       ${this._shown('presence') && (config.presence || config.activity) ? html`<div class="presence ${occupancy.active ? 'on' : ''}"><span class="presence-dot" aria-hidden="true"></span>${config.presence ? occupancy.label === 'Recent activity' ? `Recent activity · ${relativeTime(this._state(config.presence)?.last_changed)}` : occupancy.detail : `Last activity · ${timestamp ? relativeTime(timestamp) : 'unavailable'}`}</div>` : nothing}
-      ${this._renderTemperature()}${this._group('lights', 'Lights')}
+      ${config.compact ? humidityBadge : nothing}</div>
+      ${this._renderTemperature()}</div>${this._group('lights', 'Lights')}
       ${hasFavorites ? html`<div class="secondary">${this._group('scenes', 'Scenes')}${this._group('devices', 'Devices')}${this._group('automations', 'Automations')}</div>` : nothing}
-      ${hasEntities ? html`<footer class="room-footer">${this._renderContacts()}<button class="details-link" aria-label="Room details" @click=${this._openDetails}>Details <span aria-hidden="true">›</span></button></footer>` : html`<p class="empty">Choose room entities in the visual card editor. Add a thermostat, lights, contacts or other controls to get started.</p>`}
+      ${hasEntities ? html`<footer class="room-footer">${this._renderContacts()}${config.compact ? this._renderAllOff(true) : nothing}<button class="details-link" aria-label="Room details" title="Room details" @click=${this._openDetails}><span class="details-label">Details</span> <span aria-hidden="true">›</span></button></footer>` : html`<p class="empty">Choose room entities in the visual card editor. Add a thermostat, lights, contacts or other controls to get started.</p>`}
       ${!this._details ? this._feedback() : nothing}</div>${this._renderDetails()}
     </ha-card>`;
   }

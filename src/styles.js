@@ -74,17 +74,17 @@ export const cardStyles = css`
   .contact.open{color:var(--primary-text-color,#263d36)}
   .contact.open ha-icon{color:var(--room-amber)}
   .contact>span{min-width:0;overflow-wrap:anywhere}
+  .contact>.contact-symbol{display:flex;flex-shrink:0}
   .contact time{white-space:nowrap;font-variant-numeric:tabular-nums}
   .details-link{display:flex;align-items:center;gap:6px;flex-shrink:0;min-width:44px;padding:0;margin-left:auto;color:var(--room-muted)}
   .details-link>span,.history>span{font-size:24px}
+  .details-link>.details-label{font-size:14px}
   .labels-off .tile>span{display:none}
-  .compact{padding:16px}
-  .compact .presence{margin-bottom:8px}
-  .compact .thermostat{padding:10px;margin:8px 0}
-  .compact .tile{min-height:60px;padding:6px 1px}
+  .room-meta{display:contents}
+  .compact .tile{min-height:52px;padding:4px 1px;gap:4px}
   .compact .tile>span{font-size:13px}
   .compact .secondary .tile{min-height:44px}
-  .compact .room-footer{margin-top:10px}
+  .compact .room-footer{margin-top:8px}
   .message{display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.5;margin-top:8px;overflow-wrap:anywhere}
   .message:empty{display:none}
   .message.error{color:var(--error-color,#b3261e)}
@@ -171,6 +171,29 @@ export const cardStyles = css`
   .scene-enabled .tile.unavailable{border-style:dashed;border-color:var(--room-muted)}
   .scene-enabled .scenes-group .tile,.scene-enabled .scenes-details .tile{background:transparent}
   @container(max-width:310px){.scene-enabled .target-center{min-width:40px}.scene-enabled .thermostat .target-center{font-size:19px}.scene-volume{width:100%;right:-22%}.scene-enabled .thermostat{padding:8px 0}.lights-group .tiles{gap:4px}}
+  /* Compact shares two rows between room identity and thermostat controls. */
+  ha-card.compact{padding:12px}
+  .compact .room-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;margin-bottom:12px}
+  .compact .header{grid-column:1;grid-row:1;min-width:0;gap:8px}
+  .compact .title button{font-size:17px;min-width:44px}
+  .compact .room-meta{grid-column:1;grid-row:2;display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;min-width:0}
+  .compact .presence{margin:0;line-height:1.35}
+  .compact .humidity{font-size:12px}
+  .compact .thermostat{display:contents}
+  .compact .temperature-reading{grid-column:2;grid-row:1;justify-self:end;text-align:right}
+  .compact .current{font-size:32px;line-height:1.1}
+  .compact .hvac{justify-content:flex-end;margin-top:2px}
+  .compact .thermostat.unavailable .temperature-reading{border-bottom:1px dashed var(--room-muted)}
+  .compact .thermostat .target,.compact .target-readonly{grid-column:2;grid-row:2;justify-self:end}
+  .compact .thermostat .target button{min-height:44px;min-width:44px}
+  .compact .thermostat .target-center{font-size:18px;min-width:40px}
+  .compact .target-center small{font-size:11px;margin-bottom:0}
+  .compact .target-readonly{max-width:130px;font-size:12px}
+  .compact .all-off{flex-shrink:0;min-width:44px}
+  .compact .room-overview:not(.has-temperature){grid-template-columns:minmax(0,1fr)}
+  .compact .scene-volume{height:180px;top:-16px;right:-12%}
+  @container(max-width:310px){.compact .room-overview{column-gap:8px}.compact .title button{font-size:16px}.compact .current{font-size:30px}.compact .details-label{display:none}.compact .details-link{justify-content:center}}
+  @container(max-width:260px){.compact .room-overview{grid-template-columns:minmax(0,1fr)}.compact .temperature-reading{grid-column:1;grid-row:3;justify-self:start;text-align:left}.compact .hvac{justify-content:flex-start}.compact .thermostat .target,.compact .target-readonly{grid-column:1;grid-row:4;justify-self:stretch}.compact .target-readonly{max-width:none;text-align:left}}
   @media(prefers-reduced-motion:no-preference){
     .moving.heating .scene-current{animation:room-warmth 12s ease-in-out infinite}
     .moving.cooling .scene-current{animation:room-airflow 14s ease-in-out infinite}

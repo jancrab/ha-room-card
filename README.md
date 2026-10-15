@@ -1,10 +1,10 @@
 # HA Room Card
 
-A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.5.0** adds an atmospheric room scene, theme-aware light/dark palettes and optional HVAC animation to the actual card and visual editor bundled in `dist/ha-room-card.js`.
+A compact, theme-native **Home Assistant dashboard card for one room**. Add one card per room to build a house overview. Version **0.6.0** makes Compact substantially denser, with room identity beside the temperature and fewer separate rows. The actual card and visual editor are bundled in `dist/ha-room-card.js`.
 
-Screenshots show the bundled card with simulated data. [Dark preview](demo/ha-preview-dark.png) · [Mobile preview](demo/ha-compact-mobile.png).
+The screenshot shows the bundled Compact card with simulated data. Enable or disable it under **Room & layout → Compact layout** in the visual editor.
 
-![Built room card](demo/ha-preview.png)
+![Compact room card](demo/ha-dense-compact.png)
 
 ## Features
 
@@ -22,9 +22,9 @@ Screenshots show the bundled card with simulated data. [Dark preview](demo/ha-pr
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jancrab&repository=ha-room-card&category=plugin)
 
 1. In HACS, add `https://github.com/jancrab/ha-room-card` as a custom **Dashboard** repository.
-2. Download/update **HA Room Card** to v0.5.0 or later.
+2. Download/update **HA Room Card** to v0.6.0 or later.
 3. Check the existing JavaScript module resource: `/hacsfiles/ha-room-card/ha-room-card.js`. Do not register the same card twice.
-4. Reload the frontend; if the old entity-only card/editor persists, hard-refresh or clear the frontend cache. For manual module URLs, update their version query to `?v=0.2.0`.
+4. Reload the frontend; if the old card/editor persists, hard-refresh or clear the frontend cache. For manual module URLs, update their version query to `?v=0.6.0`.
 5. Edit your dashboard, choose **Add card**, then search for **HA Room Card**. This is a dashboard card, not an integration or entity row.
 
 Open the visual editor to select entities. Sections include Room & layout, Temperature & presence, Lights, Window & door contacts, Scenes, Devices and Automations. Under **Customize selected entities**, each selected item can be hidden or given its own label/icon. No YAML is required for normal configuration.
@@ -101,7 +101,7 @@ Every section is optional. Replace the example IDs with your own entities. Light
 | Option | Meaning / default |
 | --- | --- |
 | `name`, `subtitle`, `icon` | Room heading, optional subtitle and MDI icon. Name defaults to Room. |
-| `compact` | Focused overview with temperature, lights and contact status; `true`. Secondary controls default to room details. |
+| `compact` | Dense two-column overview with room name beside the temperature, reduced spacing and lights directly below; `true`. Secondary controls default to room details. Toggle **Room & layout → Compact layout** in the visual editor. |
 | `show_labels` | Captions under icons; `true`. |
 | `show_scene` | Atmospheric room background; `true`. |
 | `animate_scene` | Animate confirmed heating/cooling when visible and motion is permitted; `true`. |
@@ -129,7 +129,7 @@ List entries accept an entity ID or `{entity, name, icon, display, enabled}`. In
 - **All off** affects only the included lights displayed on the card. Lights configured for details only are controlled individually in the room dialog.
 - A disabled section is hidden from both views and excluded from group actions. Hiding controls never changes the physical device state.
 
-Compact summarizes closed contacts as **All closed**. Open or unavailable contacts stay visible; closed contacts' individual durations are available in Room details. With an open contact present, the summary of other closed contacts is omitted. Room details offers direct light/device/automation controls and scene actions, with brightness sliders expanded individually. Long light labels are abbreviated visually on narrow cards; full names remain in tooltips, accessible labels and room details. Use a short custom label if needed.
+Compact puts **Lights off** in the footer and omits the separate light heading. It summarizes closed contacts as **All closed**. Open or unavailable contacts stay visible; closed contacts' individual durations are available in Room details. With an open contact present, the summary of other closed contacts is omitted. Room details offers direct light/device/automation controls and scene actions, with brightness sliders expanded individually. Long light labels are abbreviated visually on narrow cards; full names remain in tooltips, accessible labels and room details. Use a short custom label if needed.
 
 ## Runtime behavior and limits
 

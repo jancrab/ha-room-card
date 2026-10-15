@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Make the existing optional Compact layout substantially denser: room identity and temperature share the top rows, with less padding and shorter light tiles.
+- Move the compact light-group action to the footer as **Lights off**, removing the separate light heading while preserving 44px targets and explicit light inclusion.
+- Keep the spacious Standard layout available through **Room & layout → Compact layout** in the visual editor.
+
 ## 0.5.0
 
 - Add an original atmospheric room scene with theme-aware light/dark palettes, a larger current temperature and calmer control surfaces.
